@@ -1,0 +1,26 @@
+# Python / Django (Ibrahim)
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+*.sqlite3
+*.log
+
+# Node / Next.js (Mégane)
+node_modules/
+.next/
+.env.local
+.env*.local
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
