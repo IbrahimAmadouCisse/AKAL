@@ -1,0 +1,5 @@
+akal_env/
+.env
+*.sqlite3
+__pycache__/
+*.md
