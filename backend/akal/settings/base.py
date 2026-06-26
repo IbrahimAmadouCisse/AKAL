@@ -16,6 +16,10 @@ import environ
 
 env = environ.Env()
 
+# GDAL / GEOS — PostGIS installe ces libs dans le dossier bin de PostgreSQL
+GDAL_LIBRARY_PATH = r'C:\Program Files\PostgreSQL\18\bin\libgdal-35.dll'
+GEOS_LIBRARY_PATH = r'C:\Program Files\PostgreSQL\18\bin\libgeos_c.dll'
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # .parent x3 car base.py est dans akal/settings/, donc : settings -> akal -> akal_project
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -42,9 +46,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',
 
     # Apps du projet
+    'accounts',
+    'geo',
     'annonces',
+    'messaging',
 ]
 
 MIDDLEWARE = [
@@ -83,6 +91,10 @@ WSGI_APPLICATION = 'akal.wsgi.application'
 DATABASES = {
     'default': env.db(),
 }
+DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
+
+# Custom User model
+AUTH_USER_MODEL = 'accounts.User'
 
 
 # Password validation
@@ -120,3 +132,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Media files (uploads: avatars, photos)
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'

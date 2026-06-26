@@ -24,3 +24,13 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Fichiers médias (uploads utilisateurs)
+media/
+backend/media/
+
+# Documentation locale
+docs/DATABASE.md
+
+# Environnement virtuel local
+backend/akal_env/
