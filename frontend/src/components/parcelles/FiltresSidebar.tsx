@@ -1,0 +1,166 @@
+"use client";
+
+import { REGIONS, CULTURES, STATUTS } from "@/data/parcelles";
+import BadgeStatut from "./BadgeStatut";
+import { Search, X } from "@/components/icons/Icons";
+
+type Props = {
+  ouverte: boolean;
+  onFermer: () => void;
+};
+
+// NB : les filtres ne sont pas encore câblés (front uniquement, mock data).
+// Quand l'API sera prête, on remontera ces valeurs en state et on filtrera
+// la liste — ou on passera par des query params côté serveur.
+export default function FiltresSidebar({ ouverte, onFermer }: Props) {
+  return (
+    <>
+      {/* Overlay mobile */}
+      {ouverte && (
+        <div
+          onClick={onFermer}
+          style={{
+            position: "fixed",
+            inset: 0,
+            top: "64px",
+            backgroundColor: "rgba(0,0,0,0.35)",
+            zIndex: 25,
+          }}
+          className="hidden-desktop"
+        />
+      )}
+
+      <aside
+        className={`filtres-sidebar ${ouverte ? "filtres-sidebar--ouverte" : ""}`}
+        aria-label="Filtres de recherche"
+      >
+        <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Titre */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <h2 style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-texte)" }}>Filtres</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <button type="button" style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", color: "var(--color-tertiaire)" }}>
+                Réinitialiser
+              </button>
+              <button
+                type="button"
+                onClick={onFermer}
+                aria-label="Fermer les filtres"
+                className="hidden-desktop"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--color-tertiaire)", display: "flex" }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Recherche textuelle */}
+          <div style={{ position: "relative" }}>
+            <Search
+              size={14}
+              style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--color-tertiaire)" }}
+            />
+            <input
+              className="input"
+              placeholder="Rechercher une annonce…"
+              style={{ height: "44px", paddingLeft: "36px", fontSize: "14px" }}
+            />
+          </div>
+
+          {/* Région */}
+          <div>
+            <label style={labelStyle}>Région</label>
+            <select className="input" style={{ height: "44px", fontSize: "14px" }}>
+              {REGIONS.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Cultures */}
+          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <legend style={labelStyle}>Type de culture</legend>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              {CULTURES.map((c) => (
+                <label key={c.label} style={checkRowStyle}>
+                  <input type="checkbox" style={{ width: "14px", height: "14px", accentColor: "var(--color-foret)" }} />
+                  <span>{c.emoji} {c.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {/* Statut foncier */}
+          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <legend style={labelStyle}>Statut foncier</legend>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              {STATUTS.map((s) => (
+                <label key={s} style={{ ...checkRowStyle, gap: "8px" }}>
+                  <input type="checkbox" style={{ width: "14px", height: "14px", accentColor: "var(--color-foret)" }} />
+                  <BadgeStatut statut={s} />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {/* Prix */}
+          <div>
+            <label style={labelStyle}>Prix (MAD)</label>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input className="input" placeholder="Min" style={miniInputStyle} />
+              <input className="input" placeholder="Max" style={miniInputStyle} />
+            </div>
+          </div>
+
+          {/* Surface */}
+          <div>
+            <label style={labelStyle}>Surface (ha)</label>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input className="input" placeholder="Min" style={miniInputStyle} />
+              <input className="input" placeholder="Max" style={miniInputStyle} />
+            </div>
+          </div>
+
+          {/* Eau */}
+          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+            <legend style={labelStyle}>Accès à l&apos;eau</legend>
+            <div style={{ display: "flex", gap: "16px" }}>
+              {["Irriguée", "Bour", "Mixte"].map((o) => (
+                <label key={o} style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", fontSize: "13px", color: "var(--color-texte)" }}>
+                  <input type="radio" name="eau" style={{ accentColor: "var(--color-foret)" }} /> {o}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <button className="btn-primary" style={{ width: "100%" }}>
+            Appliquer les filtres
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: "12px",
+  fontWeight: 500,
+  marginBottom: "8px",
+  color: "var(--color-secondaire)",
+};
+
+const checkRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  cursor: "pointer",
+  fontSize: "14px",
+  color: "var(--color-texte)",
+};
+
+const miniInputStyle: React.CSSProperties = {
+  height: "40px",
+  fontSize: "13px",
+  padding: "0 12px",
+};

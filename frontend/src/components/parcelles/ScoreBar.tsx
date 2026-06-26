@@ -1,0 +1,38 @@
+// Barre de visualisation de l'AgriScore (/100).
+// Couleur selon seuil : vert ≥ 75, blé 50-74, terre < 50.
+
+export default function ScoreBar({ score }: { score: number }) {
+  const couleur =
+    score >= 75
+      ? "var(--color-foret)"
+      : score >= 50
+        ? "var(--color-ble)"
+        : "var(--color-terre)";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div
+        style={{
+          flex: 1,
+          height: "6px",
+          borderRadius: "999px",
+          backgroundColor: "var(--color-menthe)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${score}%`,
+            borderRadius: "999px",
+            backgroundColor: couleur,
+            transition: "width 200ms ease",
+          }}
+        />
+      </div>
+      <span style={{ fontSize: "12px", fontWeight: 500, color: couleur, whiteSpace: "nowrap" }}>
+        {score}/100
+      </span>
+    </div>
+  );
+}
