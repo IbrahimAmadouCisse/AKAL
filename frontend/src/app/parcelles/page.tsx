@@ -5,6 +5,7 @@ import { PARCELLES } from "@/data/parcelles";
 import CardParcelle from "@/components/parcelles/CardParcelle";
 import FiltresSidebar from "@/components/parcelles/FiltresSidebar";
 import BarreComparateur from "@/components/parcelles/BarreComparateur";
+import CarteParcelles from "@/components/parcelles/CarteParcelles";
 import { Grid, Map, Filter } from "@/components/icons/Icons";
 
 type ModeAffichage = "grille" | "carte";
@@ -132,22 +133,7 @@ export default function CataloguePage() {
             ))}
           </div>
         ) : (
-          <div
-            style={{
-              borderRadius: "var(--radius-card)",
-              border: "1px solid var(--color-bordure)",
-              height: "500px",
-              backgroundColor: "#e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <div style={{ textAlign: "center", color: "var(--color-tertiaire)" }}>
-              <Map size={32} style={{ margin: "0 auto 8px" }} />
-              <div style={{ fontSize: "14px" }}>Vue carte (Leaflet) — à intégrer · synchronisée avec les filtres</div>
-            </div>
-          </div>
+          <CarteParcelles parcelles={PARCELLES} />
         )}
 
         {/* Pagination (statique pour l'instant) */}

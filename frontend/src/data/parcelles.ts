@@ -21,6 +21,7 @@ export type Parcelle = {
   eau: boolean;
   score: number; // AgriScore /100
   badge: string | null;
+  coords: [number, number]; // [latitude, longitude]
   // Photo : à terme, URL Cloudinary. Pour le mock, une image Unsplash.
   photo: string;
 };
@@ -31,6 +32,7 @@ export const PARCELLES: Parcelle[] = [
     titre: "Oliveraie certifiée bio — Meknès",
     region: "Meknès-Tafilalet",
     ville: "Aït Ourir",
+    coords: [31.5722, -7.6694],
     surface: 4.2,
     prix: 1_260_000,
     prixM2: 30,
@@ -46,6 +48,7 @@ export const PARCELLES: Parcelle[] = [
     titre: "Terrain irrigué polyculture — Souss",
     region: "Souss-Massa",
     ville: "Biougra",
+    coords: [30.2128, -9.3700],
     surface: 8.7,
     prix: 2_088_000,
     prixM2: 24,
@@ -61,6 +64,7 @@ export const PARCELLES: Parcelle[] = [
     titre: "Parcelle céréalière en bour — Meknès",
     region: "Meknès-Tafilalet",
     ville: "El Hajeb",
+    coords: [33.6914, -5.3711],
     surface: 15.0,
     prix: 1_800_000,
     prixM2: 12,
@@ -76,6 +80,7 @@ export const PARCELLES: Parcelle[] = [
     titre: "Vignoble établi — Benslimane",
     region: "Casablanca-Settat",
     ville: "Benslimane",
+    coords: [33.6128, -7.1228],
     surface: 3.1,
     prix: 1_550_000,
     prixM2: 50,
@@ -91,6 +96,7 @@ export const PARCELLES: Parcelle[] = [
     titre: "Agrumes — vallée du Gharb",
     region: "Rabat-Salé-Kénitra",
     ville: "Sidi Kacem",
+    coords: [34.2214, -5.7081],
     surface: 6.5,
     prix: 1_950_000,
     prixM2: 30,
@@ -106,6 +112,7 @@ export const PARCELLES: Parcelle[] = [
     titre: "Terrain à aménager — Taourirt",
     region: "Oriental",
     ville: "Taourirt",
+    coords: [34.4072, -2.8975],
     surface: 22.0,
     prix: 880_000,
     prixM2: 4,

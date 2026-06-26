@@ -94,3 +94,30 @@ export function X({ size, className, style, strokeWidth }: IconProps) {
     </svg>
   );
 }
+
+export function ArrowRight({ size, className, style, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className} style={style}>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
+  );
+}
+
+export function BarChart({ size, className, style, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className} style={style}>
+      <line x1="12" x2="12" y1="20" y2="10" />
+      <line x1="18" x2="18" y1="20" y2="4" />
+      <line x1="6" x2="6" y1="20" y2="16" />
+    </svg>
+  );
+}
+
+export function MessageSquare({ size, className, style, strokeWidth }: IconProps) {
+  return (
+    <svg {...base(size, strokeWidth)} className={className} style={style}>
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
