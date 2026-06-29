@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { PARCELLES } from "@/data/parcelles";
+import { useState, useMemo, useCallback } from "react";
+import {
+  PARCELLES,
+  FILTRES_INITIAUX,
+  filtrerParcelles,
+  trierParcelles,
+  type FiltresState,
+  type Tri,
+} from "@/data/parcelles";
 import CardParcelle from "@/components/parcelles/CardParcelle";
 import FiltresSidebar from "@/components/parcelles/FiltresSidebar";
 import BarreComparateur from "@/components/parcelles/BarreComparateur";
@@ -12,9 +19,25 @@ type ModeAffichage = "grille" | "carte";
 
 export default function CataloguePage() {
   const [mode, setMode] = useState<ModeAffichage>("grille");
-  const [tri, setTri] = useState("recent");
+  const [tri, setTri] = useState<Tri>("recent");
   const [comparaison, setComparaison] = useState<number[]>([]);
   const [sidebarOuverte, setSidebarOuverte] = useState(false);
+  const [filtres, setFiltres] = useState<FiltresState>(FILTRES_INITIAUX);
+
+  // Mise à jour partielle des filtres (live).
+  const patchFiltres = useCallback((patch: Partial<FiltresState>) => {
+    setFiltres((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const reinitialiser = useCallback(() => setFiltres(FILTRES_INITIAUX), []);
+
+  // Liste filtrée + triée, recalculée à chaque changement (temps réel).
+  const parcellesVisibles = useMemo(
+    () => trierParcelles(filtrerParcelles(PARCELLES, filtres), tri),
+    [filtres, tri],
+  );
+
+  const nb = parcellesVisibles.length;
 
   const toggleComparaison = (id: number) => {
     setComparaison((prev) =>
@@ -30,7 +53,14 @@ export default function CataloguePage() {
 
   return (
     <div className="catalogue" style={{ display: "flex", minHeight: "calc(100vh - 64px)", backgroundColor: "var(--color-fond)" }}>
-      <FiltresSidebar ouverte={sidebarOuverte} onFermer={() => setSidebarOuverte(false)} />
+      <FiltresSidebar
+        ouverte={sidebarOuverte}
+        onFermer={() => setSidebarOuverte(false)}
+        filtres={filtres}
+        onChange={patchFiltres}
+        onReinitialiser={reinitialiser}
+        onAppliquer={() => setSidebarOuverte(false)}
+      />
 
       {/* Zone principale */}
       <main style={{ flex: 1, minWidth: 0, padding: "20px", paddingBottom: comparaison.length > 0 ? "96px" : "20px" }}>
@@ -65,15 +95,16 @@ export default function CataloguePage() {
             >
               <Filter size={14} /> Filtres
             </button>
-            <span style={{ fontSize: "14px", color: "var(--color-secondaire)" }}>
-              <strong style={{ color: "var(--color-texte)" }}>{PARCELLES.length}</strong> annonces affichées
+            <span aria-live="polite" style={{ fontSize: "14px", color: "var(--color-secondaire)" }}>
+              <strong style={{ color: "var(--color-texte)" }}>{nb}</strong>{" "}
+              {nb <= 1 ? "annonce affichée" : "annonces affichées"}
             </span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <select
               value={tri}
-              onChange={(e) => setTri(e.target.value)}
+              onChange={(e) => setTri(e.target.value as Tri)}
               style={{
                 padding: "8px 12px",
                 borderRadius: "8px",
@@ -115,7 +146,27 @@ export default function CataloguePage() {
         </div>
 
         {/* Contenu */}
-        {mode === "grille" ? (
+        {nb === 0 ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "12px",
+              padding: "64px 20px",
+              textAlign: "center",
+              color: "var(--color-tertiaire)",
+            }}
+          >
+            <p style={{ fontSize: "15px", color: "var(--color-secondaire)" }}>
+              Aucune annonce ne correspond à vos critères.
+            </p>
+            <button type="button" className="btn-secondary" onClick={reinitialiser}>
+              Réinitialiser les filtres
+            </button>
+          </div>
+        ) : mode === "grille" ? (
           <div
             style={{
               display: "grid",
@@ -123,7 +174,7 @@ export default function CataloguePage() {
               gap: "16px",
             }}
           >
-            {PARCELLES.map((p) => (
+            {parcellesVisibles.map((p) => (
               <CardParcelle
                 key={p.id}
                 parcelle={p}
@@ -133,33 +184,35 @@ export default function CataloguePage() {
             ))}
           </div>
         ) : (
-          <CarteParcelles parcelles={PARCELLES} />
+          <CarteParcelles parcelles={parcellesVisibles} />
         )}
 
-        {/* Pagination (statique pour l'instant) */}
-        <nav aria-label="Pagination" style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "32px" }}>
-          {[1, 2, 3, "…", 12].map((p, i) => (
-            <button
-              key={i}
-              type="button"
-              aria-current={p === 1 ? "page" : undefined}
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                fontSize: "12px",
-                fontWeight: 500,
-                border: `1px solid ${p === 1 ? "var(--color-foret)" : "var(--color-bordure)"}`,
-                backgroundColor: p === 1 ? "var(--color-foret)" : "white",
-                color: p === 1 ? "white" : "var(--color-texte)",
-                cursor: p === "…" ? "default" : "pointer",
-              }}
-              disabled={p === "…"}
-            >
-              {p}
-            </button>
-          ))}
-        </nav>
+        {/* Pagination (statique pour l'instant, masquée si aucun résultat) */}
+        {nb > 0 && (
+          <nav aria-label="Pagination" style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "32px" }}>
+            {[1, 2, 3, "…", 12].map((p, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-current={p === 1 ? "page" : undefined}
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: 500,
+                  border: `1px solid ${p === 1 ? "var(--color-foret)" : "var(--color-bordure)"}`,
+                  backgroundColor: p === 1 ? "var(--color-foret)" : "white",
+                  color: p === 1 ? "white" : "var(--color-texte)",
+                  cursor: p === "…" ? "default" : "pointer",
+                }}
+                disabled={p === "…"}
+              >
+                {p}
+              </button>
+            ))}
+          </nav>
+        )}
       </main>
 
       <BarreComparateur parcelles={parcellesComparees} onRetirer={toggleComparaison} />

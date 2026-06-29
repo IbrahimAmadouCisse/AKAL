@@ -149,3 +149,115 @@ export const STATUTS: StatutFoncier[] = [
   "Guich",
   "Habous",
 ];
+
+// ---------------------------------------------------------------------------
+// Filtres & tri (front uniquement, mock data).
+// Logique pure et testable, prête à être remplacée par des query params API.
+// ---------------------------------------------------------------------------
+
+export type AccesEau = "Tous" | "Irriguée" | "Bour";
+
+export type FiltresState = {
+  recherche: string;
+  region: string; // "Toutes les régions" = pas de filtre
+  cultures: string[]; // vide = toutes
+  statuts: StatutFoncier[]; // vide = tous
+  prixMin: number | null;
+  prixMax: number | null;
+  surfaceMin: number | null;
+  surfaceMax: number | null;
+  eau: AccesEau;
+};
+
+export const FILTRES_INITIAUX: FiltresState = {
+  recherche: "",
+  region: "Toutes les régions",
+  cultures: [],
+  statuts: [],
+  prixMin: null,
+  prixMax: null,
+  surfaceMin: null,
+  surfaceMax: null,
+  eau: "Tous",
+};
+
+export type Tri = "recent" | "prix_asc" | "prix_desc" | "surface" | "score";
+
+// Normalise une chaîne pour comparaison insensible à la casse / aux accents.
+function normaliser(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+export function filtrerParcelles(
+  parcelles: Parcelle[],
+  f: FiltresState,
+): Parcelle[] {
+  return parcelles.filter((p) => {
+    // Recherche textuelle (titre, ville, région, culture)
+    if (f.recherche.trim()) {
+      const q = normaliser(f.recherche.trim());
+      const cible = normaliser(`${p.titre} ${p.ville} ${p.region} ${p.culture}`);
+      if (!cible.includes(q)) return false;
+    }
+
+    // Région
+    if (f.region !== "Toutes les régions" && p.region !== f.region) return false;
+
+    // Cultures (multi — OU logique)
+    if (f.cultures.length > 0 && !f.cultures.includes(p.culture)) return false;
+
+    // Statut foncier (multi — OU logique)
+    if (f.statuts.length > 0 && !f.statuts.includes(p.statut)) return false;
+
+    // Prix
+    if (f.prixMin != null && p.prix < f.prixMin) return false;
+    if (f.prixMax != null && p.prix > f.prixMax) return false;
+
+    // Surface
+    if (f.surfaceMin != null && p.surface < f.surfaceMin) return false;
+    if (f.surfaceMax != null && p.surface > f.surfaceMax) return false;
+
+    // Accès à l'eau
+    if (f.eau === "Irriguée" && !p.eau) return false;
+    if (f.eau === "Bour" && p.eau) return false;
+
+    return true;
+  });
+}
+
+export function trierParcelles(liste: Parcelle[], tri: Tri): Parcelle[] {
+  const copie = [...liste];
+  switch (tri) {
+    case "prix_asc":
+      return copie.sort((a, b) => a.prix - b.prix);
+    case "prix_desc":
+      return copie.sort((a, b) => b.prix - a.prix);
+    case "surface":
+      return copie.sort((a, b) => b.surface - a.surface);
+    case "score":
+      return copie.sort((a, b) => b.score - a.score);
+    case "recent":
+    default:
+      // À défaut de date dans le mock, on garde l'ordre source (id décroissant
+      // = plus récent en premier, à ajuster quand l'API fournira `createdAt`).
+      return copie.sort((a, b) => b.id - a.id);
+  }
+}
+
+// Indique si au moins un filtre est actif (utile pour un bouton "Réinitialiser").
+export function filtresActifs(f: FiltresState): boolean {
+  return (
+    f.recherche.trim() !== "" ||
+    f.region !== "Toutes les régions" ||
+    f.cultures.length > 0 ||
+    f.statuts.length > 0 ||
+    f.prixMin != null ||
+    f.prixMax != null ||
+    f.surfaceMin != null ||
+    f.surfaceMax != null ||
+    f.eau !== "Tous"
+  );
+}
