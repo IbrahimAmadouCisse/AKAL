@@ -6,6 +6,8 @@ from django.contrib.gis.db import models as gis_models
 from django.db import models
 from django.utils.text import slugify
 
+from .managers import AnnonceManager
+
 
 # ──────────────────────────────────────────────
 # PARCELLE — Le terrain physique
@@ -105,6 +107,8 @@ class Annonce(models.Model):
         db_table = 'annonce'
         verbose_name = 'Annonce'
         verbose_name_plural = 'Annonces'
+
+    objects = AnnonceManager()
 
     def save(self, *args, **kwargs):
         if not self.slug:

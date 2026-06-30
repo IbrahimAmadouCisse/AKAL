@@ -48,6 +48,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.gis',
 
+    # Apps tierces
+    'django_filters',
+
     # Apps du projet
     'accounts',
     'geo',

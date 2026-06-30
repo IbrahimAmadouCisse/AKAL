@@ -1,0 +1,801 @@
+# 📘 AKAL — Documentation Technique
+
+> Plateforme de vente de terrains agricoles au Maroc
+
+---
+
+## Table des matières
+
+1. [Vue d'ensemble du projet](#1--vue-densemble-du-projet)
+2. [Architecture technique](#2--architecture-technique)
+3. [Structure du projet](#3--structure-du-projet)
+4. [Schéma de base de données](#4--schéma-de-base-de-données)
+5. [Détail des modèles par app](#5--détail-des-modèles-par-app)
+6. [Relations entre les modèles](#6--relations-entre-les-modèles)
+7. [Enums & choix prédéfinis](#7--enums--choix-prédéfinis)
+8. [Configuration & prérequis](#8--configuration--prérequis)
+9. [Management Commands](#9--management-commands)
+10. [Logique Métier & Vues](#10--logique-métier--vues)
+11. [Journal des modifications](#11--journal-des-modifications)
+
+---
+
+## 1 — Vue d'ensemble du projet
+
+**AKAL** est une plateforme web permettant de mettre en vente et d'évaluer des terrains agricoles au Maroc. Elle connecte les **propriétaires** de parcelles avec des **investisseurs** potentiels.
+
+### Fonctionnalités principales
+
+| Fonctionnalité | Description |
+|---|---|
+| 🏞️ **Annonces** | Publier des terrains à vendre avec photos, localisation GPS et données foncières |
+| 📊 **AgriScore** | Évaluation automatique de la qualité agricole d'une parcelle |
+| 💬 **Messagerie** | Communication directe entre acheteurs et vendeurs |
+| ❤️ **Favoris** | Sauvegarder des annonces intéressantes |
+| 🗺️ **Géolocalisation** | Positionnement PostGIS avec découpage territorial marocain (Région → Province → Commune) |
+
+### Rôles utilisateurs
+
+| Rôle | Permissions |
+|---|---|
+| `PROPRIETAIRE` | Créer des annonces, gérer ses parcelles, répondre aux messages |
+| `INVESTISSEUR` | Consulter les annonces, contacter les propriétaires, gérer ses favoris |
+| `ADMIN` | Gestion globale de la plateforme |
+
+---
+
+## 2 — Architecture technique
+
+### Stack technologique
+
+| Composant | Technologie | Version |
+|---|---|---|
+| **Backend** | Django | 6.0.6 |
+| **Base de données** | PostgreSQL + PostGIS | — |
+| **ORM spatial** | `django.contrib.gis` (GeoDjango) | inclus dans Django |
+| **Variables d'environnement** | django-environ | 0.14.0 |
+| **Driver PostgreSQL** | psycopg2-binary | 2.9.12 |
+| **Frontend** | *(à définir)* | — |
+
+### Dépendances système requises
+
+| Dépendance | Rôle | Installation |
+|---|---|---|
+| **PostgreSQL** | Base de données relationnelle | [postgresql.org](https://www.postgresql.org/download/) |
+| **PostGIS** | Extension spatiale de PostgreSQL | `CREATE EXTENSION postgis;` dans la DB |
+| **GDAL** | Bibliothèque géospatiale (requis par GeoDjango) | [Guide d'installation GDAL](https://docs.djangoproject.com/en/6.0/ref/contrib/gis/install/) |
+| **Pillow** | Traitement d'images (pour `ImageField`) | `pip install Pillow` |
+
+---
+
+## 3 — Structure du projet
+
+```
+AKAL/
+├── backend/
+│   ├── manage.py
+│   ├── requirements.txt
+│   ├── .env                          # Variables d'environnement (non versionné)
+│   │
+│   ├── akal/                         # Configuration Django
+│   │   ├── settings/
+│   │   │   ├── base.py               # Settings communs
+│   │   │   ├── dev.py                # Settings développement
+│   │   │   └── prod.py               # Settings production
+│   │   ├── urls.py                   # Routes principales
+│   │   ├── wsgi.py
+│   │   └── asgi.py
+│   │
+│   ├── accounts/                     # 👤 Gestion des utilisateurs
+│   │   ├── models.py                 # User custom (AbstractUser)
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   └── migrations/
+│   │
+│   ├── geo/                          # 🗺️ Découpage territorial
+│   │   ├── models.py                 # Region, Province, Commune
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   └── migrations/
+│   │
+│   ├── annonces/                     # 🏞️ Cœur métier
+│   │   ├── models.py                 # Parcelle, Annonce, AgriScore, Photo
+│   │   ├── managers.py               # AnnonceManager & AnnonceQuerySet
+│   │   ├── filters.py                # AnnonceFilter (django-filter)
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   ├── management/
+│   │   │   └── commands/
+│   │   │       └── seed_parcelles.py  # 🌱 Seed de données fictives
+│   │   ├── migrations/
+│   │   ├── urls.py                   # Routes de l'app annonces
+│   │   └── views.py                  # CatalogueView (FilterView)
+│   │
+│   ├── messaging/                    # 💬 Messagerie & favoris
+│   │   ├── models.py                 # Favori, Conversation, Message
+│   │   ├── admin.py
+│   │   ├── apps.py
+│   │   └── migrations/
+│   │
+│   └── media/                        # Fichiers uploadés (avatars, photos)
+│       ├── photos/                   # Photos des annonces
+│       └── seed_images/              # Cache images téléchargées (seed)
+│
+├── frontend/                         # (à définir)
+├── docs/                             # Documentation
+│   └── BACKEND.md                    # ← Ce fichier
+└── README.md
+```
+
+### Pourquoi 4 apps ?
+
+| App | Responsabilité | Justification |
+|---|---|---|
+| `accounts` | Authentification & profils | Le `User` custom **doit** être dans sa propre app (contrainte Django). Évite les dépendances circulaires. |
+| `geo` | Données de référence géographiques | Region/Province/Commune sont des données statiques réutilisables, indépendantes de la logique métier. |
+| `annonces` | Logique métier principale | Parcelles, annonces, scoring, photos — le cœur de la plateforme. |
+| `messaging` | Communication & engagement | Favoris, conversations, messages — fonctionnalités sociales isolées. |
+
+---
+
+## 4 — Schéma de base de données
+
+### Diagramme des relations
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   REGION    │────<│   PROVINCE   │────<│   COMMUNE   │
+│  (id: int)  │  1:N│  (id: int)   │  1:N│  (id: int)  │
+└─────────────┘     └──────────────┘     └──────┬──────┘
+                                                │ 1:N
+                                                ▼
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│    USER     │────<│   ANNONCE    │>────│  PARCELLE   │
+│ (id: uuid)  │  1:N│  (id: uuid)  │  N:1│  (id: uuid) │
+└──────┬──────┘     └──────┬───┬───┘     └──────┬──────┘
+       │                   │   │                │ 1:1
+       │            ┌──────┘   └──────┐         ▼
+       │            │                 │  ┌─────────────┐
+       │            ▼                 ▼  │  AGRISCORE  │
+       │     ┌─────────────┐  ┌──────────┤  (id: uuid) │
+       │     │    PHOTO    │  │  FAVORI  │└─────────────┘
+       │     │  (id: uuid) │  │(id: uuid)│
+       │     └─────────────┘  └──────────┘
+       │
+       │         ┌──────────────────┐     ┌─────────────┐
+       └────────<│  CONVERSATION    │────<│   MESSAGE   │
+          2 FK   │   (id: uuid)     │  1:N│  (id: uuid) │
+                 └──────────────────┘     └─────────────┘
+```
+
+### Résumé des tables
+
+| Table | PK | Nombre de FK | Contraintes spéciales |
+|---|---|---|---|
+| `user` | UUID | 0 | Email unique, `USERNAME_FIELD = 'email'` |
+| `region` | Integer | 0 | — |
+| `province` | Integer | 1 (region) | — |
+| `commune` | Integer | 1 (province) | — |
+| `parcelle` | UUID | 1 (commune) | Champs PostGIS (PointField, PolygonField) |
+| `annonce` | UUID | 2 (parcelle, user) | Slug unique auto-généré |
+| `agriscore` | UUID | 1 (parcelle) | **OneToOne** avec Parcelle |
+| `photo` | UUID | 1 (annonce) | Ordonnée par `ordre` |
+| `favori` | UUID | 2 (user, annonce) | **UNIQUE** (user, annonce) |
+| `conversation` | UUID | 3 (annonce, initiateur, destinataire) | **UNIQUE** (annonce, initiateur, destinataire) |
+| `message` | UUID | 2 (conversation, auteur) | Ordonné par `created_at` |
+
+---
+
+## 5 — Détail des modèles par app
+
+### 5.1 — App `accounts`
+
+#### Modèle `User`
+
+> **Fichier** : `backend/accounts/models.py`
+> **Hérite de** : `AbstractUser`
+> **Table** : `user`
+
+Utilisateur personnalisé qui remplace le `User` par défaut de Django. L'authentification se fait par **email** (pas de champ `username`).
+
+| Champ | Type Django | Type DB | Contraintes | Description |
+|---|---|---|---|---|
+| `id` | `UUIDField` | `uuid` | PK, auto-généré | Identifiant unique |
+| `email` | `EmailField` | `varchar` | **UNIQUE**, NOT NULL | Adresse email (sert de login) |
+| `role` | `CharField(20)` | `varchar(20)` | NOT NULL | Rôle : PROPRIETAIRE, INVESTISSEUR, ADMIN |
+| `nom` | `CharField(150)` | `varchar(150)` | NOT NULL | Nom de famille |
+| `prenom` | `CharField(150)` | `varchar(150)` | NOT NULL | Prénom |
+| `telephone` | `CharField(20)` | `varchar(20)` | NULLABLE | Numéro de téléphone |
+| `avatar` | `ImageField` | `varchar` | NULLABLE | Photo de profil (upload → `media/avatars/`) |
+| `is_verified` | `BooleanField` | `boolean` | DEFAULT `False` | Compte vérifié par un admin |
+| `date_inscription` | `DateTimeField` | `timestamp` | Auto (`auto_now_add`) | Date de création du compte |
+
+> **Note** : Les champs hérités de `AbstractUser` (`password`, `is_active`, `is_staff`, `is_superuser`, `last_login`, `date_joined`, `groups`, `user_permissions`) restent disponibles. Seul `username` a été supprimé.
+
+**Manager Personnalisé (`UserManager`) :**
+Étant donné que le champ `username` a été supprimé, un manager personnalisé a été créé pour gérer la création des utilisateurs et superutilisateurs uniquement avec l'email.
+```python
+objects = UserManager()
+```
+
+**Configuration requise dans `settings` :**
+```python
+AUTH_USER_MODEL = 'accounts.User'
+```
+
+---
+
+### 5.2 — App `geo`
+
+> **Fichier** : `backend/geo/models.py`
+
+Hiérarchie administrative du Maroc. Les IDs sont des `IntegerField` (pas auto-incrémentés) car ils proviennent des données officielles du découpage territorial.
+
+#### Modèle `Region`
+**Table** : `region`
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `IntegerField` | PK | ID officiel de la région |
+| `nom` | `CharField(255)` | NOT NULL | Nom de la région |
+| `code` | `CharField(50)` | NOT NULL | Code de la région |
+
+#### Modèle `Province`
+**Table** : `province`
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `IntegerField` | PK | ID officiel |
+| `region` | `ForeignKey → Region` | NOT NULL, CASCADE | Région parente |
+| `nom` | `CharField(255)` | NOT NULL | Nom de la province |
+| `code` | `CharField(50)` | NOT NULL | Code de la province |
+
+#### Modèle `Commune`
+**Table** : `commune`
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `IntegerField` | PK | ID officiel |
+| `province` | `ForeignKey → Province` | NOT NULL, CASCADE | Province parente |
+| `nom` | `CharField(255)` | NOT NULL | Nom de la commune |
+
+**Accès depuis Django (exemples) :**
+```python
+# Toutes les provinces d'une région
+region.provinces.all()
+
+# Toutes les communes d'une province
+province.communes.all()
+
+# Remonter : commune → province → région
+commune.province.region.nom
+```
+
+---
+
+### 5.3 — App `annonces`
+
+> **Fichier** : `backend/annonces/models.py`
+
+#### Modèle `Parcelle`
+**Table** : `parcelle`
+
+Représente le terrain physique avec ses caractéristiques agricoles et sa géolocalisation.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `commune` | `FK → geo.Commune` | NOT NULL, CASCADE | Localisation administrative |
+| `surface` | `DecimalField(8,2)` | NOT NULL | Surface en **hectares** |
+| `statut_foncier` | `CharField(20)` | NOT NULL | Voir [enum StatutFoncier](#statut-foncier) |
+| `acces_eau` | `CharField(20)` | NOT NULL | Voir [enum AccesEau](#accès-eau) |
+| `topographie` | `CharField(20)` | NOT NULL | Voir [enum Topographie](#topographie) |
+| `acces_routier` | `CharField(20)` | NOT NULL | Voir [enum AccesRoutier](#accès-routier) |
+| `latitude` | `FloatField` | NOT NULL | Coordonnée GPS |
+| `longitude` | `FloatField` | NOT NULL | Coordonnée GPS |
+| `geom` | `PointField` (PostGIS) | NOT NULL, SRID 4326 | Géométrie point pour requêtes spatiales |
+| `contour` | `PolygonField` (PostGIS) | NULLABLE, SRID 4326 | Contour de la parcelle *(Phase 2)* |
+| `metadata` | `JSONField` | DEFAULT `{}` | Données supplémentaires flexibles |
+| `created_at` | `DateTimeField` | Auto | Date de création |
+
+> **💡 `geom` vs `latitude`/`longitude`** : Le champ `geom` (PostGIS) permet les requêtes spatiales avancées (distance, intersection, contenu dans une zone). Les champs `latitude`/`longitude` offrent un accès simple aux coordonnées sans avoir besoin de PostGIS.
+
+#### Modèle `Annonce`
+**Table** : `annonce`
+
+Représente la mise en vente d'une parcelle par un propriétaire.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `parcelle` | `FK → Parcelle` | NOT NULL, CASCADE | Terrain mis en vente |
+| `proprietaire` | `FK → User` | NOT NULL, CASCADE | Vendeur |
+| `slug` | `SlugField(255)` | **UNIQUE**, auto | URL-friendly (ex: `terrain-irrigue-fes-a1b2c3d4`) |
+| `titre` | `CharField(120)` | NOT NULL | Titre de l'annonce |
+| `description` | `TextField` | NOT NULL | Description détaillée |
+| `prix` | `DecimalField(12,2)` | NOT NULL | Prix en **MAD** (dirhams) |
+| `statut_annonce` | `CharField(20)` | DEFAULT `brouillon` | Voir [enum StatutAnnonce](#statut-annonce) |
+| `loc_confidentielle` | `BooleanField` | DEFAULT `False` | Masquer la localisation exacte |
+| `vues` | `PositiveIntegerField` | DEFAULT `0` | Compteur de vues |
+| `date_publication` | `DateTimeField` | NULLABLE | Date de mise en ligne |
+| `created_at` | `DateTimeField` | Auto | Date de création |
+| `updated_at` | `DateTimeField` | Auto | Dernière modification |
+
+**Génération automatique du slug :**
+```python
+def save(self, *args, **kwargs):
+    if not self.slug:
+        base_slug = slugify(self.titre)
+        self.slug = f"{base_slug}-{str(self.id)[:8]}"
+    super().save(*args, **kwargs)
+```
+Le slug est composé du titre slugifié + les 8 premiers caractères de l'UUID, garantissant l'unicité.
+
+#### Modèle `AgriScore`
+**Table** : `agriscore`
+
+Score de qualité agricole calculé automatiquement pour chaque parcelle. Relation **OneToOne** : une parcelle a au maximum un AgriScore.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `parcelle` | `OneToOneField → Parcelle` | NOT NULL, CASCADE | Parcelle évaluée |
+| `score_global` | `FloatField` | NULLABLE | Score global (0–100) |
+| `sous_scores` | `JSONField` | NULLABLE | Détail par critère (ex: `{"sol": 85, "eau": 72}`) |
+| `indice_confiance` | `FloatField` | NULLABLE | Fiabilité du score (0–1) |
+| `version_algo` | `CharField(50)` | NOT NULL | Version de l'algorithme de scoring |
+| `calculated_at` | `DateTimeField` | NULLABLE | Date du dernier calcul |
+
+#### Modèle `Photo`
+**Table** : `photo`
+
+Photos associées à une annonce. Ordonnées par le champ `ordre`.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `annonce` | `FK → Annonce` | NOT NULL, CASCADE | Annonce associée |
+| `image` | `ImageField` | NOT NULL | Fichier image (upload → `media/photos/`) |
+| `ordre` | `IntegerField` | DEFAULT `0` | Ordre d'affichage |
+| `is_principale` | `BooleanField` | DEFAULT `False` | Photo de couverture |
+| `created_at` | `DateTimeField` | Auto | Date d'upload |
+
+---
+
+### 5.4 — App `messaging`
+
+> **Fichier** : `backend/messaging/models.py`
+
+#### Modèle `Favori`
+**Table** : `favori`
+
+Permet à un utilisateur de sauvegarder une annonce. La contrainte d'unicité empêche de mettre la même annonce en favori deux fois.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `user` | `FK → User` | NOT NULL, CASCADE | Utilisateur |
+| `annonce` | `FK → Annonce` | NOT NULL, CASCADE | Annonce sauvegardée |
+| `created_at` | `DateTimeField` | Auto | Date d'ajout |
+
+> **Contrainte** : `UNIQUE (user, annonce)` — Un utilisateur ne peut pas ajouter la même annonce en favori deux fois.
+
+#### Modèle `Conversation`
+**Table** : `conversation`
+
+Fil de discussion entre deux utilisateurs à propos d'une annonce spécifique.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `annonce` | `FK → Annonce` | NOT NULL, CASCADE | Annonce concernée |
+| `initiateur` | `FK → User` | NOT NULL, CASCADE | Qui a démarré la conversation |
+| `destinataire` | `FK → User` | NOT NULL, CASCADE | Le propriétaire contacté |
+| `created_at` | `DateTimeField` | Auto | Date de création |
+| `updated_at` | `DateTimeField` | Auto | Dernière activité |
+
+> **Contrainte** : `UNIQUE (annonce, initiateur, destinataire)` — Une seule conversation par combinaison annonce + initiateur + destinataire.
+
+#### Modèle `Message`
+**Table** : `message`
+
+Messages individuels dans une conversation. Ordonnés chronologiquement.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `conversation` | `FK → Conversation` | NOT NULL, CASCADE | Conversation parente |
+| `auteur` | `FK → User` | NOT NULL, CASCADE | Expéditeur du message |
+| `contenu` | `TextField` | NOT NULL | Corps du message |
+| `is_lu` | `BooleanField` | DEFAULT `False` | Message lu par le destinataire |
+| `created_at` | `DateTimeField` | Auto | Date d'envoi |
+
+---
+
+## 6 — Relations entre les modèles
+
+### Relations FK (ForeignKey) — 1:N
+
+| Parent | Enfant | related_name | on_delete |
+|---|---|---|---|
+| `Region` | `Province` | `provinces` | CASCADE |
+| `Province` | `Commune` | `communes` | CASCADE |
+| `Commune` | `Parcelle` | `parcelles` | CASCADE |
+| `Parcelle` | `Annonce` | `annonces` | CASCADE |
+| `User` | `Annonce` | `annonces` | CASCADE |
+| `Annonce` | `Photo` | `photos` | CASCADE |
+| `User` | `Favori` | `favoris` | CASCADE |
+| `Annonce` | `Favori` | `favoris` | CASCADE |
+| `Annonce` | `Conversation` | `conversations` | CASCADE |
+| `User` | `Conversation` (initiateur) | `conversations_initiees` | CASCADE |
+| `User` | `Conversation` (destinataire) | `conversations_recues` | CASCADE |
+| `Conversation` | `Message` | `messages` | CASCADE |
+| `User` | `Message` | `messages_envoyes` | CASCADE |
+
+### Relations OneToOne — 1:1
+
+| Parent | Enfant | related_name |
+|---|---|---|
+| `Parcelle` | `AgriScore` | `agriscore` |
+
+### Exemples d'accès via le ORM Django
+
+```python
+# Toutes les annonces d'un propriétaire
+user.annonces.all()
+
+# L'AgriScore d'une parcelle
+parcelle.agriscore  # accès direct (OneToOne)
+
+# Les photos d'une annonce
+annonce.photos.all()
+
+# Les favoris d'un utilisateur
+user.favoris.select_related('annonce').all()
+
+# Les conversations initiées par un utilisateur
+user.conversations_initiees.all()
+
+# Les messages d'une conversation
+conversation.messages.order_by('created_at')
+
+# Les parcelles d'une commune
+commune.parcelles.filter(acces_eau='irriguee')
+
+# Requête spatiale : parcelles dans un rayon de 10 km
+from django.contrib.gis.measure import D
+from django.contrib.gis.geos import Point
+point = Point(-5.0, 34.0, srid=4326)
+Parcelle.objects.filter(geom__distance_lte=(point, D(km=10)))
+```
+
+---
+
+## 7 — Enums & choix prédéfinis
+
+### Statut foncier
+*Modèle : `Parcelle.StatutFoncier`*
+
+| Valeur DB | Label | Description |
+|---|---|---|
+| `melkia` | Melkia | Propriété privée pleine |
+| `soulaliya` | Soulaliya | Terre collective tribale |
+| `guich` | Guich | Terre concédée par l'État |
+| `habous` | Habous | Bien de mainmorte (fondation religieuse) |
+| `immatricule` | Immatriculé | Terrain enregistré au cadastre |
+
+### Accès eau
+*Modèle : `Parcelle.AccesEau`*
+
+| Valeur DB | Label | Description |
+|---|---|---|
+| `irriguee` | Irriguée | Accès à un système d'irrigation |
+| `bour` | Bour | Agriculture pluviale uniquement |
+| `mixte` | Mixte | Combinaison des deux |
+
+### Topographie
+*Modèle : `Parcelle.Topographie`*
+
+| Valeur DB | Label | Description |
+|---|---|---|
+| `plat` | Plat | Terrain plat |
+| `pentu` | Pentu | Terrain en pente |
+| `vallonne` | Vallonné | Terrain avec des ondulations |
+
+### Accès routier
+*Modèle : `Parcelle.AccesRoutier`*
+
+| Valeur DB | Label | Description |
+|---|---|---|
+| `goudron` | Goudron | Route goudronnée |
+| `piste` | Piste | Piste non goudronnée |
+| `difficile` | Difficile | Accès difficile |
+
+### Statut annonce
+*Modèle : `Annonce.StatutAnnonce`*
+
+| Valeur DB | Label | Description |
+|---|---|---|
+| `brouillon` | Brouillon | En cours de rédaction |
+| `en_attente` | En attente | Soumise, en attente de validation |
+| `en_ligne` | En ligne | Publiée et visible |
+| `archivee` | Archivée | Retirée par le propriétaire |
+| `vendue` | Vendue | Transaction finalisée |
+
+### Rôle utilisateur
+*Modèle : `User.Role`*
+
+| Valeur DB | Label | Description |
+|---|---|---|
+| `PROPRIETAIRE` | Propriétaire | Possède des terrains à vendre |
+| `INVESTISSEUR` | Investisseur | Cherche des terrains à acheter |
+| `ADMIN` | Administrateur | Gère la plateforme |
+
+---
+
+## 8 — Configuration & prérequis
+
+### Variables d'environnement (`.env`)
+
+```env
+SECRET_KEY=votre-cle-secrete-ici
+DATABASE_URL=postgis://user:password@localhost:5432/akal_db
+```
+
+> ⚠️ Le schéma de la `DATABASE_URL` doit être `postgis://` (pas `postgres://`) pour que GeoDjango fonctionne.
+
+### Settings clés (`akal/settings/base.py`)
+
+```python
+# Utiliser le User custom
+AUTH_USER_MODEL = 'accounts.User'
+
+# Activer GeoDjango
+INSTALLED_APPS = [
+    ...
+    'django.contrib.gis',
+    'accounts',
+    'geo',
+    'annonces',
+    'messaging',
+]
+
+# Engine PostGIS
+DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
+
+# Chemins des bibliothèques GDAL/GEOS (Windows PostgreSQL 18)
+GDAL_LIBRARY_PATH = r'C:\Program Files\PostgreSQL\18\bin\libgdal-35.dll'
+GEOS_LIBRARY_PATH = r'C:\Program Files\PostgreSQL\18\bin\libgeos_c.dll'
+
+# Fichiers uploadés
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+```
+
+### Commandes de mise en route
+
+```bash
+# 1. Installer les dépendances Python
+pip install Pillow
+
+# 2. Activer PostGIS dans PostgreSQL
+psql -d akal_db -c "CREATE EXTENSION postgis;"
+
+# 3. Créer les migrations
+python manage.py makemigrations accounts geo annonces messaging
+
+# 4. Appliquer les migrations
+python manage.py migrate
+
+# 5. Créer un superutilisateur
+python manage.py createsuperuser
+```
+
+### Comptes par défaut (Développement)
+
+Un superutilisateur a été créé par défaut pour accéder à l'interface d'administration Django :
+
+| Rôle | Email | Mot de passe |
+|---|---|---|
+| Admin | `admin@akal.ma` | `admin1234` |
+
+---
+
+## 9 — Management Commands
+
+Commandes personnalisées Django disponibles dans le projet.
+
+### 9.1 — `seed_parcelles`
+
+> **App** : `annonces`
+> **Fichier** : `backend/annonces/management/commands/seed_parcelles.py`
+
+Insère **18 parcelles agricoles fictives** réalistes pour le développement et les tests.
+
+**Utilisation :**
+```bash
+# Lancer le seed complet
+python manage.py seed_parcelles
+
+# Nettoyer les données seed sans recréer
+python manage.py seed_parcelles --clear
+```
+
+**Ce que fait la commande :**
+
+| Étape | Action | Détail |
+|---|---|---|
+| 1. Nettoyage | Supprime les données seed existantes | Parcelles, annonces, photos, AgriScores liés aux utilisateurs de test |
+| 2. Géo | Crée les données géographiques | 6 régions, 12 provinces, 13 communes (`get_or_create`) |
+| 3. Utilisateurs | Crée 2 vendeurs de test | `vendeur1@akal.ma` et `vendeur2@akal.ma` |
+| 4. Données | Crée 18 parcelles + annonces | Avec photos (2-3 par annonce) et AgriScores |
+
+**Dépendances requises :**
+```bash
+pip install Faker requests Pillow
+```
+
+**Utilisateurs de test créés :**
+
+| Email | Nom | Rôle | Mot de passe |
+|---|---|---|---|
+| `vendeur1@akal.ma` | Ahmed El Fassi | PROPRIETAIRE | `test1234` |
+| `vendeur2@akal.ma` | Fatima Benkirane | PROPRIETAIRE | `test1234` |
+
+**Gestion des images :**
+- Les images sont téléchargées depuis **Picsum** (`picsum.photos`)
+- Elles sont cachées dans `media/seed_images/` pour éviter de re-télécharger
+- En cas d'échec réseau, un **placeholder** est généré avec Pillow
+- Les photos sont sauvegardées dans `media/photos/` via l'ImageField Django
+
+**Données culturales :**
+Le type de culture est stocké dans le champ `metadata` (JSONField) de la Parcelle :
+```python
+# Exemple
+parcelle.metadata  # {'culture': ['Blé', 'Olivier']}
+```
+
+**Résultats attendus :**
+- 18 parcelles dans la table `parcelle`
+- 18 annonces (statut `en_ligne`) dans la table `annonce`
+- ~42 photos dans la table `photo` + fichiers dans `media/photos/`
+- 18 AgriScores dans la table `agriscore`
+- 2 utilisateurs de test
+
+---
+
+---
+
+## 10 — Logique Métier & Vues
+
+La logique backend est organisée en **3 couches modulaires** :
+
+| Couche | Fichier | Responsabilité |
+|---|---|---|
+| **Manager** | `annonces/managers.py` | QuerySet réutilisable (filtres de base, optimisation SQL) |
+| **FilterSet** | `annonces/filters.py` | Filtres à facettes déclaratifs (`django-filter`) |
+| **View** | `annonces/views.py` | Orchestration (pagination, contexte) |
+
+---
+
+### 10.1 — AnnonceManager & AnnonceQuerySet
+
+> **Fichier** : `backend/annonces/managers.py`
+
+Manager custom attaché au modèle `Annonce` (`objects = AnnonceManager()`). Expose des méthodes chainables via `AnnonceQuerySet` :
+
+| Méthode | Retour | Description |
+|---|---|---|
+| `en_ligne()` | `QuerySet` | Filtre `statut_annonce='en_ligne'` |
+| `with_relations()` | `QuerySet` | Applique `select_related` + `prefetch_related` (voir ci-dessous) |
+| `search(query)` | `QuerySet` | `Q(titre__icontains=q) \| Q(description__icontains=q)` |
+
+**Optimisation N+1 — `with_relations()` :**
+
+| Stratégie | Relations chargées | Justification |
+|---|---|---|
+| `select_related` (JOIN) | `parcelle`, `parcelle__commune`, `parcelle__commune__province`, `parcelle__commune__province__region`, `proprietaire` | FK simples → 1 seule requête SQL |
+| `prefetch_related` (cache) | `photos` | Relation inverse 1:N → requête séparée mise en cache |
+
+**Exemples d'utilisation :**
+```python
+# Annonces publiées, relations pré-chargées
+Annonce.objects.en_ligne().with_relations()
+
+# Recherche textuelle chainée
+Annonce.objects.en_ligne().search("irrigué")
+
+# Combinaison complète
+Annonce.objects.en_ligne().search("Fès").with_relations()
+```
+
+---
+
+### 10.2 — AnnonceFilter (django-filter)
+
+> **Fichier** : `backend/annonces/filters.py`
+> **Dépendance** : `django-filter>=25.1` (ajouté dans `requirements.txt` et `INSTALLED_APPS`)
+
+FilterSet déclaratif qui centralise toute la logique de filtrage à facettes. Chaque paramètre GET est validé et converti automatiquement avant d'atteindre l'ORM.
+
+#### Paramètres GET supportés
+
+| Paramètre | Type de filtre | Champ ORM | Exemple d'URL |
+|---|---|---|---|
+| `q` | Recherche textuelle (méthode custom, `Q objects`) | `titre`, `description` | `?q=terrain irrigué` |
+| `region` | `BaseInFilter` (multi-sélection) | `parcelle__commune__province__region_id` | `?region=1&region=3` |
+| `statut_foncier` | `BaseInFilter` (multi-sélection) | `parcelle__statut_foncier` | `?statut_foncier=melkia&statut_foncier=guich` |
+| `culture` | `CharFilter` (méthode custom, JSONField) | `parcelle__metadata__culture__icontains` | `?culture=Blé` |
+| `acces_eau` | `ChoiceFilter` (exact) | `parcelle__acces_eau` | `?acces_eau=irriguee` |
+| `prix_min` | `NumberFilter` (`gte`) | `prix` | `?prix_min=100000` |
+| `prix_max` | `NumberFilter` (`lte`) | `prix` | `?prix_max=500000` |
+| `surface_min` | `NumberFilter` (`gte`) | `parcelle__surface` | `?surface_min=2` |
+| `surface_max` | `NumberFilter` (`lte`) | `parcelle__surface` | `?surface_max=50` |
+| `sort` | `OrderingFilter` | — | `?sort=prix`, `?sort=-prix`, `?sort=date_publication`, `?sort=-date_publication` |
+
+#### Méthodes custom
+
+| Méthode | Paramètre | Logique |
+|---|---|---|
+| `filter_search` | `q` | `Q(titre__icontains=value) \| Q(description__icontains=value)` |
+| `filter_culture` | `culture` | `parcelle__metadata__culture__icontains=value` (PostgreSQL JSONField) |
+
+---
+
+### 10.3 — CatalogueView
+
+> **Fichier** : `backend/annonces/views.py`
+> **Route** : `/annonces/`
+> **Hérite de** : `django_filters.views.FilterView`
+
+Vue catalogue simplifiée qui délègue le filtrage et le tri au `AnnonceFilter`.
+
+**Architecture :**
+```
+Requête GET → FilterView
+                ├── get_queryset() → Annonce.objects.en_ligne().with_relations()
+                ├── AnnonceFilter.filter_queryset() → applique tous les filtres
+                ├── paginate_queryset() → pagination 12/page
+                └── get_context_data() → injecte active_filters + current_sort
+```
+
+**Caractéristiques :**
+*   **Filtrage** : Entièrement délégué à `AnnonceFilter` (déclaratif, validé).
+*   **Pagination** : 12 éléments/page. Gestion robuste des erreurs (`PageNotAnInteger` → page 1, `EmptyPage` → dernière page).
+*   **Contexte front-end (Persistance UI)** : La méthode `get_context_data` utilise la validation du FilterSet (`filterset.form.cleaned_data`) pour nettoyer et extraire uniquement les paramètres GET valides. Cela permet de rejeter avec grâce les erreurs de typage dans l'URL (ex: `prix_min=abc`) et d'injecter proprement `active_filters` et `current_sort` dans le contexte pour pré-remplir les formulaires UI.
+*   **Optimisation SQL** : Via `AnnonceManager.with_relations()` dans `get_queryset()`.
+
+---
+
+### 10.4 — AnnonceDetailView
+
+> **Fichier** : `backend/annonces/views.py`
+> **Route** : `/annonces/<slug:slug>/`
+> **Hérite de** : `django.views.generic.DetailView`
+
+Vue détaillée affichant la fiche complète d'une annonce et incluant un système de recommandation.
+
+**Caractéristiques principales :**
+*   **Optimisation N+1** : Surcharge de `get_queryset()` pour inclure `Annonce.objects.en_ligne().with_relations()` afin de charger en une seule requête le propriétaire, la chaîne géographique, et les photos. La relation OneToOne `parcelle__agriscore` y est également pré-chargée via un `select_related` dédié.
+*   **Algorithme de recommandation** : Injecte dans le contexte un queryset `parcelles_similaires` (jusqu'à 3 annonces).
+    *   *Critères* : Prix situé dans une fourchette de +/- 20% **ET** (même région **OU** même type de culture).
+    *   *Optimisation* : Ce queryset utilise également `.with_relations()` pour éviter tout problème N+1 lors de l'affichage des cartes de suggestion sur le frontend. L'annonce actuellement consultée est automatiquement exclue des résultats.
+
+---
+
+## 11 — Journal des modifications
+
+| Date | Auteur | Description |
+|---|---|---|
+| 2026-06-26 | — | **Création initiale** : Intégration du schéma complet (13 modèles, 4 apps). User custom, PostGIS, enums fonciers marocains. |
+| 2026-06-26 | — | **Configuration base de données** : Installation PostGIS, configuration chemins GDAL/GEOS, création `UserManager`, application des migrations, et création du superutilisateur. |
+| 2026-06-29 | — | **Seed parcelles** : Management command `seed_parcelles` — 18 parcelles fictives avec photos Picsum, 2 vendeurs de test, données géo, AgriScores. Renommage `DATABASE.md` → `BACKEND.md`. |
+| 2026-06-29 | — | **Vue Catalogue & Pagination** : Création de `CatalogueView` (12/page) avec optimisation SQL (select/prefetch_related). Routage `/annonces/`. |
+| 2026-06-29 | — | **Filtres ORM & Tri** : Ajout de filtres avancés (prix, surface, région, culture dans JSONField) et système de tri (`?sort=`) dans `CatalogueView`. |
+| 2026-06-30 | — | **Refactoring filtres modulaires** : Architecture 3 couches (Manager → FilterSet → View). Création `managers.py` (AnnonceQuerySet chainable), `filters.py` (django-filter avec recherche Q, BaseInFilter multi-sélection, OrderingFilter). Migration de `ListView` vers `FilterView`. Ajout `django-filter>=25.1`. |
+| 2026-06-30 | — | **Validation du contexte UI** : Amélioration de `CatalogueView.get_context_data` pour utiliser `filterset.form.cleaned_data` afin d'ignorer silencieusement les erreurs de typage URL et d'injecter des `active_filters` stricts au frontend. |
+| 2026-06-30 | — | **Vue Détail & Recommandations** : Création de `AnnonceDetailView` avec optimisation N+1 (`with_relations()`, `agriscore`). Ajout d'un algorithme de parcelles similaires basé sur le prix (+/- 20%) et (Région ou Culture) via requêtes `Q`. |
+
+---
+
+*Documentation générée et maintenue au fur et à mesure de l'avancement du projet AKAL.*
