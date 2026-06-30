@@ -22,8 +22,9 @@ export type Parcelle = {
   score: number; // AgriScore /100
   badge: string | null;
   coords: [number, number]; // [latitude, longitude]
-  // Photo : à terme, URL Cloudinary. Pour le mock, une image Unsplash.
-  photo: string;
+  // Galerie : à terme, URLs Cloudinary. Pour le mock, images Unsplash.
+  // photos[0] = image principale (utilisée dans les cards du catalogue).
+  photos: string[];
 };
 
 export const PARCELLES: Parcelle[] = [
@@ -41,7 +42,11 @@ export const PARCELLES: Parcelle[] = [
     eau: true,
     score: 82,
     badge: "Nouveau",
-    photo: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600&h=450&fit=crop&auto=format",
+    photos: [
+      "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800&h=600&fit=crop&auto=format",
+    ],
   },
   {
     id: 2,
@@ -57,7 +62,11 @@ export const PARCELLES: Parcelle[] = [
     eau: true,
     score: 67,
     badge: null,
-    photo: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&h=450&fit=crop&auto=format",
+    photos: [
+      "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1560493676-04071c5f467b?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=800&h=600&fit=crop&auto=format",
+    ],
   },
   {
     id: 3,
@@ -73,7 +82,11 @@ export const PARCELLES: Parcelle[] = [
     eau: false,
     score: 54,
     badge: null,
-    photo: "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=600&h=450&fit=crop&auto=format",
+    photos: [
+      "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1467688480561-1ea027f2e8bd?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1500651230702-0e2d8a49d4ad?w=800&h=600&fit=crop&auto=format",
+    ],
   },
   {
     id: 4,
@@ -89,7 +102,11 @@ export const PARCELLES: Parcelle[] = [
     eau: true,
     score: 91,
     badge: "Nouveau",
-    photo: "https://images.unsplash.com/photo-1543158181-e6f9f6712055?w=600&h=450&fit=crop&auto=format",
+    photos: [
+      "https://images.unsplash.com/photo-1543158181-e6f9f6712055?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1504701954957-2010ec3bcec1?w=800&h=600&fit=crop&auto=format",
+    ],
   },
   {
     id: 5,
@@ -105,7 +122,11 @@ export const PARCELLES: Parcelle[] = [
     eau: true,
     score: 73,
     badge: null,
-    photo: "https://images.unsplash.com/photo-1591857177580-dc82b9ac4e1e?w=600&h=450&fit=crop&auto=format",
+    photos: [
+      "https://images.unsplash.com/photo-1591857177580-dc82b9ac4e1e?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1587321773736-1d60aa5fe9d8?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1571576309635-f41d70e4e7e5?w=800&h=600&fit=crop&auto=format",
+    ],
   },
   {
     id: 6,
@@ -121,7 +142,11 @@ export const PARCELLES: Parcelle[] = [
     eau: false,
     score: 41,
     badge: null,
-    photo: "https://images.unsplash.com/photo-1530267981375-f0de937f5f13?w=600&h=450&fit=crop&auto=format",
+    photos: [
+      "https://images.unsplash.com/photo-1530267981375-f0de937f5f13?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1483871788521-4f224a86ef37?w=800&h=600&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1605000797498-6f2d4ef407d1?w=800&h=600&fit=crop&auto=format",
+    ],
   },
 ];
 

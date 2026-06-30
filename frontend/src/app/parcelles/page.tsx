@@ -15,21 +15,40 @@ import BarreComparateur from "@/components/parcelles/BarreComparateur";
 import CarteParcelles from "@/components/parcelles/CarteParcelles";
 import { Grid, Map, Filter } from "@/components/icons/Icons";
 
+const PAGE_SIZE = 4;
+
+function getPaginationPages(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "…")[] = [1];
+  if (current > 3) pages.push("…");
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+    pages.push(i);
+  }
+  if (current < total - 2) pages.push("…");
+  pages.push(total);
+  return pages;
+}
+
 type ModeAffichage = "grille" | "carte";
 
 export default function CataloguePage() {
   const [mode, setMode] = useState<ModeAffichage>("grille");
   const [tri, setTri] = useState<Tri>("recent");
+  const [page, setPage] = useState(1);
   const [comparaison, setComparaison] = useState<number[]>([]);
   const [sidebarOuverte, setSidebarOuverte] = useState(false);
   const [filtres, setFiltres] = useState<FiltresState>(FILTRES_INITIAUX);
 
-  // Mise à jour partielle des filtres (live).
+  // Mise à jour partielle des filtres (live) — remet la pagination à 1.
   const patchFiltres = useCallback((patch: Partial<FiltresState>) => {
     setFiltres((prev) => ({ ...prev, ...patch }));
+    setPage(1);
   }, []);
 
-  const reinitialiser = useCallback(() => setFiltres(FILTRES_INITIAUX), []);
+  const reinitialiser = useCallback(() => {
+    setFiltres(FILTRES_INITIAUX);
+    setPage(1);
+  }, []);
 
   // Liste filtrée + triée, recalculée à chaque changement (temps réel).
   const parcellesVisibles = useMemo(
@@ -38,6 +57,8 @@ export default function CataloguePage() {
   );
 
   const nb = parcellesVisibles.length;
+  const totalPages = Math.max(1, Math.ceil(nb / PAGE_SIZE));
+  const parcellesPage = parcellesVisibles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const toggleComparaison = (id: number) => {
     setComparaison((prev) =>
@@ -104,7 +125,7 @@ export default function CataloguePage() {
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <select
               value={tri}
-              onChange={(e) => setTri(e.target.value as Tri)}
+              onChange={(e) => { setTri(e.target.value as Tri); setPage(1); }}
               style={{
                 padding: "8px 12px",
                 borderRadius: "8px",
@@ -174,7 +195,7 @@ export default function CataloguePage() {
               gap: "16px",
             }}
           >
-            {parcellesVisibles.map((p) => (
+            {parcellesPage.map((p) => (
               <CardParcelle
                 key={p.id}
                 parcelle={p}
@@ -187,30 +208,64 @@ export default function CataloguePage() {
           <CarteParcelles parcelles={parcellesVisibles} />
         )}
 
-        {/* Pagination (statique pour l'instant, masquée si aucun résultat) */}
-        {nb > 0 && (
-          <nav aria-label="Pagination" style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "32px" }}>
-            {[1, 2, 3, "…", 12].map((p, i) => (
+        {nb > 0 && totalPages > 1 && (
+          <nav
+            aria-label="Pagination"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginTop: "32px" }}
+          >
+            {/* Précédent */}
+            <button
+              type="button"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page === 1}
+              aria-label="Page précédente"
+              style={{
+                width: "32px", height: "32px", borderRadius: "8px", fontSize: "14px",
+                border: "1px solid var(--color-bordure)", backgroundColor: "white",
+                cursor: page === 1 ? "default" : "pointer",
+                color: page === 1 ? "var(--color-tertiaire)" : "var(--color-texte)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              ‹
+            </button>
+
+            {getPaginationPages(page, totalPages).map((p, i) => (
               <button
                 key={i}
                 type="button"
-                aria-current={p === 1 ? "page" : undefined}
+                onClick={() => typeof p === "number" && setPage(p)}
+                disabled={p === "…"}
+                aria-current={p === page ? "page" : undefined}
                 style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  fontWeight: 500,
-                  border: `1px solid ${p === 1 ? "var(--color-foret)" : "var(--color-bordure)"}`,
-                  backgroundColor: p === 1 ? "var(--color-foret)" : "white",
-                  color: p === 1 ? "white" : "var(--color-texte)",
+                  width: "32px", height: "32px", borderRadius: "8px",
+                  fontSize: "12px", fontWeight: 500,
+                  border: `1px solid ${p === page ? "var(--color-foret)" : "var(--color-bordure)"}`,
+                  backgroundColor: p === page ? "var(--color-foret)" : "white",
+                  color: p === page ? "white" : p === "…" ? "var(--color-tertiaire)" : "var(--color-texte)",
                   cursor: p === "…" ? "default" : "pointer",
                 }}
-                disabled={p === "…"}
               >
                 {p}
               </button>
             ))}
+
+            {/* Suivant */}
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page === totalPages}
+              aria-label="Page suivante"
+              style={{
+                width: "32px", height: "32px", borderRadius: "8px", fontSize: "14px",
+                border: "1px solid var(--color-bordure)", backgroundColor: "white",
+                cursor: page === totalPages ? "default" : "pointer",
+                color: page === totalPages ? "var(--color-tertiaire)" : "var(--color-texte)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              ›
+            </button>
           </nav>
         )}
       </main>

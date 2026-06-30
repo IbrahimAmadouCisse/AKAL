@@ -163,4 +163,28 @@
       transform: translateX(0);
     }
   }
+
+  /* --- Page fiche parcelle --- */
+  .fiche-layout {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+  }
+
+  .fiche-aside {
+    width: 340px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 84px;
+  }
+
+  @media (max-width: 900px) {
+    .fiche-layout {
+      flex-direction: column;
+    }
+    .fiche-aside {
+      width: 100%;
+      position: static;
+    }
+  }
 }

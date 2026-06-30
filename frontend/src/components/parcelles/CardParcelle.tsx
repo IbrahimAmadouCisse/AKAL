@@ -25,7 +25,7 @@ export default function CardParcelle({ parcelle, enComparaison, onToggleComparai
       {/* Photo */}
       <div style={{ position: "relative", width: "100%", paddingBottom: "70%" }}>
         <Image
-          src={a.photo}
+          src={a.photos[0]}
           alt={a.titre}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
