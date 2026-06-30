@@ -783,7 +783,24 @@ Vue détaillée affichant la fiche complète d'une annonce et incluant un systè
 
 ---
 
-## 11 — Journal des modifications
+## 11 — Déploiement en Production (Docker & IaC)
+
+Le backend AKAL est conteneurisé via Docker et configuré pour un déploiement Infrastructure as Code (IaC) sur [Render](https://render.com).
+
+### Composants de production
+
+| Composant | Technologie | Fichier de config | Rôle |
+|---|---|---|---|
+| **Conteneurisation** | Docker | `Dockerfile` | Image `python:3.11-slim` sécurisée (utilisateur non-root). Installe les dépendances système GDAL/PostGIS via `apt-get` (`binutils`, `libproj-dev`, `gdal-bin`). |
+| **Orchestration / IaC** | Render | `render.yaml` | Déploie un Web Service Docker (`akal-backend`) et provisionne une DB PostgreSQL managée (`akal-db`). Gère l'injection de `DATABASE_URL` et `SECRET_KEY`. |
+| **Serveur d'Application** | Gunicorn | `requirements.txt` | Serveur WSGI performant pour Django (`gunicorn akal.wsgi:application --bind 0.0.0.0:8000`). |
+| **Fichiers Statiques** | WhiteNoise | `base.py` | Middleware (`WhiteNoiseMiddleware`) servant les assets statiques sans nécessiter un serveur Nginx/Apache en frontal. |
+
+> ⚠️ **PostGIS sur Render** : La base de données provisionnée par `render.yaml` est un PostgreSQL standard. Lors du premier déploiement, vous devez exécuter manuellement `CREATE EXTENSION postgis;` sur l'instance de DB avant que les migrations Django ne puissent s'exécuter avec succès.
+
+---
+
+## 12 — Journal des modifications
 
 | Date | Auteur | Description |
 |---|---|---|
@@ -795,6 +812,7 @@ Vue détaillée affichant la fiche complète d'une annonce et incluant un systè
 | 2026-06-30 | — | **Refactoring filtres modulaires** : Architecture 3 couches (Manager → FilterSet → View). Création `managers.py` (AnnonceQuerySet chainable), `filters.py` (django-filter avec recherche Q, BaseInFilter multi-sélection, OrderingFilter). Migration de `ListView` vers `FilterView`. Ajout `django-filter>=25.1`. |
 | 2026-06-30 | — | **Validation du contexte UI** : Amélioration de `CatalogueView.get_context_data` pour utiliser `filterset.form.cleaned_data` afin d'ignorer silencieusement les erreurs de typage URL et d'injecter des `active_filters` stricts au frontend. |
 | 2026-06-30 | — | **Vue Détail & Recommandations** : Création de `AnnonceDetailView` avec optimisation N+1 (`with_relations()`, `agriscore`). Ajout d'un algorithme de parcelles similaires basé sur le prix (+/- 20%) et (Région ou Culture) via requêtes `Q`. |
+| 2026-06-30 | — | **Config DevOps (Prod)** : Ajout du `Dockerfile` (PostGIS deps, Gunicorn, non-root), `.dockerignore` et `render.yaml`. Configuration de `WhiteNoise` pour les statiques. Ajout d'une condition dans `base.py` pour basculer dynamiquement le `GDAL_LIBRARY_PATH` entre Windows et Linux/Docker. |
 
 ---
 
