@@ -1,5 +1,5 @@
 # Base image optimisée (slim) pour Python
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Empêche Python d'écrire des fichiers .pyc (gain de place)
 ENV PYTHONDONTWRITEBYTECODE=1
