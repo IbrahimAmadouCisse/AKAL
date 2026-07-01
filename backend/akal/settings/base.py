@@ -17,11 +17,20 @@ import environ
 
 env = environ.Env()
 
-# GDAL / GEOS — Chemins spécifiques pour le développement sous Windows.
-# Sur Linux/Docker, les paquets apt (gdal-bin, libgdal-dev) sont détectés automatiquement.
-if os.name == 'nt':
-    GDAL_LIBRARY_PATH = r'C:\Program Files\PostgreSQL\18\bin\libgdal-35.dll'
-    GEOS_LIBRARY_PATH = r'C:\Program Files\PostgreSQL\18\bin\libgeos_c.dll'
+# GDAL / GEOS — set via .env when auto-detection fails (non-standard install paths on
+# Windows or macOS). Leave unset to let Django discover the libraries automatically
+# (Linux/Docker with gdal-bin, macOS with Homebrew GDAL on $PATH).
+#
+# Example .env entries for a Windows dev with PostgreSQL-bundled GDAL:
+#   GDAL_LIBRARY_PATH=C:\Program Files\PostgreSQL\18\bin\libgdal-35.dll
+#   GEOS_LIBRARY_PATH=C:\Program Files\PostgreSQL\18\bin\libgeos_c.dll
+_gdal_path = env('GDAL_LIBRARY_PATH', default='')
+if _gdal_path:
+    GDAL_LIBRARY_PATH = _gdal_path
+
+_geos_path = env('GEOS_LIBRARY_PATH', default='')
+if _geos_path:
+    GEOS_LIBRARY_PATH = _geos_path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # .parent x3 car base.py est dans akal/settings/, donc : settings -> akal -> akal_project
@@ -53,6 +62,8 @@ INSTALLED_APPS = [
 
     # Apps tierces
     'django_filters',
+    'rest_framework',
+    'corsheaders',
 
     # Apps du projet
     'accounts',
@@ -64,6 +75,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -137,6 +149,14 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_PERMISSION_CLASSES': [],
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 12,
+}
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'

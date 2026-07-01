@@ -20,4 +20,7 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('annonces/', include('annonces.urls')),
+    # REST API
+    path('api/annonces/', include('annonces.api.urls')),
+    path('api/geo/', include('geo.api.urls')),
 ]

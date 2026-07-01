@@ -49,8 +49,8 @@ class Parcelle(models.Model):
     acces_eau = models.CharField(max_length=20, choices=AccesEau.choices)
     topographie = models.CharField(max_length=20, choices=Topographie.choices)
     acces_routier = models.CharField(max_length=20, choices=AccesRoutier.choices)
-    latitude = models.FloatField()
-    longitude = models.FloatField()
+    latitude = models.FloatField(editable=False)
+    longitude = models.FloatField(editable=False)
     geom = gis_models.PointField(srid=4326)
     contour = gis_models.PolygonField(
         srid=4326, blank=True, null=True, help_text='Phase 2'
@@ -62,6 +62,12 @@ class Parcelle(models.Model):
         db_table = 'parcelle'
         verbose_name = 'Parcelle'
         verbose_name_plural = 'Parcelles'
+
+    def save(self, *args, **kwargs):
+        if self.geom:
+            self.longitude = self.geom.x
+            self.latitude = self.geom.y
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Parcelle {self.id} — {self.surface} ha"

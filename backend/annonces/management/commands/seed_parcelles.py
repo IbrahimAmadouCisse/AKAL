@@ -739,8 +739,6 @@ class Command(BaseCommand):
                 acces_eau=data['acces_eau'],
                 topographie=data['topographie'],
                 acces_routier=data['acces_routier'],
-                latitude=data['latitude'],
-                longitude=data['longitude'],
                 geom=Point(data['longitude'], data['latitude'], srid=4326),
                 metadata={'culture': data['culture']},
             )

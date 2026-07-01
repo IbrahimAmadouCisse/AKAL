@@ -129,11 +129,12 @@ class AnnonceFilter(django_filters.FilterSet):
         Le champ metadata contient une clé 'culture' avec une liste de strings.
         Exemple : {"culture": ["Blé", "Olivier"]}
 
-        Utilise icontains sur PostgreSQL pour une recherche textuelle
-        dans la représentation JSON.
+        Utilise l'opérateur JSON @> (contains) de PostgreSQL pour vérifier
+        que la valeur est un élément exact du tableau — insensible aux faux positifs
+        de sous-chaîne que produirait icontains sur la représentation JSON sérialisée.
         """
         if not value:
             return queryset
         return queryset.filter(
-            parcelle__metadata__culture__icontains=value
+            parcelle__metadata__culture__contains=[value]
         )
