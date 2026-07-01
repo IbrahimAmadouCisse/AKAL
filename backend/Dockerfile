@@ -41,4 +41,4 @@ USER akaluser
 EXPOSE 8000
 
 # Commande par défaut (peut être surchargée par l'IaC comme render.yaml)
-CMD ["gunicorn", "akal.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD sh -c "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn akal.wsgi:application --bind 0.0.0.0:8000"
