@@ -1,34 +1,30 @@
-services:
-  # Base de données PostgreSQL managée (Render gère les sauvegardes et la scalabilité)
-  - type: psql
-    name: akal-db
-    plan: free # Changer pour 'starter' ou supérieur en vraie production
+databases:
+  # Base de données PostgreSQL managée
+  - name: akal-db
+    plan: free
     databaseName: akal_db
     user: akal_user
-    ipAllowList: [] # Laisser vide permet l'accès interne Render uniquement (best practice)
+    ipAllowList: []
 
+services:
   # Service Web Django (conteneurisé via Docker)
   - type: web
     name: akal-backend
     env: docker
-    plan: free 
-    # Start command : Collecte des statiques, application des migrations, puis lancement WSGI Gunicorn
+    plan: free
     startCommand: "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn akal.wsgi:application --bind 0.0.0.0:8000"
     
     envVars:
-      # Liaison automatique à la base de données créée ci-dessus via la variable DATABASE_URL interne à Render
       - key: DATABASE_URL
         fromDatabase:
           name: akal-db
           property: connectionString
-      
-      # Django Settings
+          
       - key: DJANGO_SETTINGS_MODULE
         value: akal.settings.prod
-      
+        
       - key: SECRET_KEY
-        generateValue: true # Render générera une chaîne aléatoire sécurisée au premier déploiement
-      
-      # Empêcher Python de bufferiser les logs (pour voir les logs en direct sur le dashboard Render)
+        generateValue: true
+        
       - key: PYTHONUNBUFFERED
         value: "1"
