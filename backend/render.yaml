@@ -11,8 +11,9 @@ services:
   - type: web
     name: akal-backend
     env: docker
+    rootDir: backend  # <-- LA LIGNE MAGIQUE EST ICI
     plan: free
-   
+    
     envVars:
       - key: DATABASE_URL
         fromDatabase:
