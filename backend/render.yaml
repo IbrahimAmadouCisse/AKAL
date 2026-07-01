@@ -11,7 +11,7 @@ services:
   - type: web
     name: akal-backend
     env: docker
-    plan: starter # Le plan 'free' Render met le serveur en veille. 'starter' évite cela.
+    plan: free 
     # Start command : Collecte des statiques, application des migrations, puis lancement WSGI Gunicorn
     startCommand: "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn akal.wsgi:application --bind 0.0.0.0:8000"
     
