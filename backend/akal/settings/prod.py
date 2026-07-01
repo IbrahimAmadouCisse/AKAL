@@ -1,7 +1,7 @@
 from .base import *
 
 DEBUG = False
-ALLOWED_HOSTS = ['akal.ma', 'www.akal.ma'] # Exemple de domaine pour la mise en prod[cite: 2]
+ALLOWED_HOSTS = ['akal.ma', 'www.akal.ma', 'akal-api-backend.onrender.com'] # Exemple de domaine pour la mise en prod[cite: 2]
 
 # Sécurité renforcée pour la production
 SECURE_SSL_REDIRECT = True
