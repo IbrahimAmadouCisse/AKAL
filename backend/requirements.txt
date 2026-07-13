@@ -10,3 +10,5 @@ sqlparse==0.5.5
 tzdata==2026.2
 gunicorn==22.0.0
 whitenoise==6.6.0
+django-redis>=5.4.0
+locust>=2.29.0

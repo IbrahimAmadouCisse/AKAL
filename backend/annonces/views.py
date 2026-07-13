@@ -3,14 +3,36 @@ Vues de l'app annonces.
 
 CatalogueView : liste paginée des annonces en ligne,
 avec filtres à facettes et tri dynamique délégués à AnnonceFilter.
+
+Cache :
+    - CatalogueView  → cache manuel (clé = hash des query params), TTL 60s
+    - AnnonceDetailView → @cache_page(300), TTL 5 min
 """
 
+import hashlib
+
+from django.core.cache import cache
 from django.core.paginator import EmptyPage, PageNotAnInteger
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 from django_filters.views import FilterView
 
 from .filters import AnnonceFilter
 from .models import Annonce
+
+
+def _build_catalogue_cache_key(query_dict):
+    """
+    Construit une clé de cache déterministe à partir des paramètres GET.
+
+    Les paramètres sont triés pour garantir que les mêmes filtres
+    dans un ordre différent produisent la même clé.
+    """
+    # Trie les paramètres pour assurer la déterminisme
+    sorted_params = sorted(query_dict.items())
+    raw = '&'.join(f'{k}={v}' for k, v in sorted_params)
+    return f"catalogue:{hashlib.md5(raw.encode()).hexdigest()}"
 
 
 class CatalogueView(FilterView):
@@ -26,6 +48,7 @@ class CatalogueView(FilterView):
         - Tri dynamique (prix, date_publication, croissant/décroissant)
         - Pagination (12 éléments/page)
         - Optimisation N+1 (select_related + prefetch_related)
+        - Cache Redis (TTL 60s, clé basée sur les query params)
 
     Le queryset de base est fourni par AnnonceManager :
         Annonce.objects.en_ligne().with_relations()
@@ -36,6 +59,31 @@ class CatalogueView(FilterView):
     template_name = 'annonces/catalogue.html'
     context_object_name = 'annonces'
     paginate_by = 12
+
+    # TTL du cache en secondes
+    CACHE_TTL = 60
+
+    def get(self, request, *args, **kwargs):
+        """
+        Surcharge de get() pour intégrer le cache Redis.
+
+        Stratégie : on cache la réponse HTTP complète avec une clé
+        dérivée des query params (filtres + pagination + tri).
+        Cela évite le coût du filterset + queryset + template rendering.
+        """
+        cache_key = _build_catalogue_cache_key(request.GET)
+        cached_response = cache.get(cache_key)
+
+        if cached_response is not None:
+            return cached_response
+
+        response = super().get(request, *args, **kwargs)
+        # TemplateResponse doit être rendu avant d'être mis en cache
+        if hasattr(response, 'render'):
+            response.render()
+
+        cache.set(cache_key, response, self.CACHE_TTL)
+        return response
 
     def get_queryset(self):
         """
@@ -106,12 +154,17 @@ from django.views.generic import DetailView
 from django.db.models import Q
 from decimal import Decimal
 
+
+@method_decorator(cache_page(300), name='dispatch')
 class AnnonceDetailView(DetailView):
     """
     Vue détaillée d'une annonce.
     
     Affiche la fiche complète d'une parcelle et calcule un algorithme
     de recommandation pour suggérer jusqu'à 3 annonces similaires.
+
+    Cache : @cache_page(300) — 5 minutes. Les détails d'annonce changent
+    rarement, un TTL plus long est approprié.
     """
     model = Annonce
     template_name = 'annonces/detail.html'

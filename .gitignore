@@ -34,3 +34,7 @@ docs/DATABASE.md
 
 # Environnement virtuel local
 backend/akal_env/
+
+# Antigravity/Gemini IDE customization directory
+.agents/
+

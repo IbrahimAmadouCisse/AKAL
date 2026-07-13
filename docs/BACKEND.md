@@ -16,7 +16,10 @@
 8. [Configuration & prérequis](#8--configuration--prérequis)
 9. [Management Commands](#9--management-commands)
 10. [Logique Métier & Vues](#10--logique-métier--vues)
-11. [Journal des modifications](#11--journal-des-modifications)
+11. [Cache Redis & Performance](#11--cache-redis--performance)
+12. [Test de Charge (Locust)](#12--test-de-charge-locust)
+13. [Déploiement en Production (Docker & IaC)](#13--déploiement-en-production-docker--iac)
+14. [Journal des modifications](#14--journal-des-modifications)
 
 ---
 
@@ -53,8 +56,10 @@
 | **Backend** | Django | 6.0.6 |
 | **Base de données** | PostgreSQL + PostGIS | — |
 | **ORM spatial** | `django.contrib.gis` (GeoDjango) | inclus dans Django |
+| **Cache** | Redis + django-redis | 7 (Alpine) / ≥5.4.0 |
 | **Variables d'environnement** | django-environ | 0.14.0 |
 | **Driver PostgreSQL** | psycopg2-binary | 2.9.12 |
+| **Test de charge** | Locust | ≥2.29.0 |
 | **Frontend** | *(à définir)* | — |
 
 ### Dépendances système requises
@@ -76,10 +81,12 @@ AKAL/
 │   ├── manage.py
 │   ├── requirements.txt
 │   ├── .env                          # Variables d'environnement (non versionné)
+│   ├── docker-compose.yml            # 🐳 Redis (test de charge)
+│   ├── locustfile.py                 # 🦗 Scénarios de test de charge
 │   │
 │   ├── akal/                         # Configuration Django
 │   │   ├── settings/
-│   │   │   ├── base.py               # Settings communs
+│   │   │   ├── base.py               # Settings communs (+ CACHES Redis)
 │   │   │   ├── dev.py                # Settings développement
 │   │   │   └── prod.py               # Settings production
 │   │   ├── urls.py                   # Routes principales
@@ -106,10 +113,11 @@ AKAL/
 │   │   ├── apps.py
 │   │   ├── management/
 │   │   │   └── commands/
-│   │   │       └── seed_parcelles.py  # 🌱 Seed de données fictives
+│   │   │       ├── seed_parcelles.py  # 🌱 Seed de données fictives (18)
+│   │   │       └── seed_test_data.py  # 🚀 Seed de charge (100K annonces)
 │   │   ├── migrations/
 │   │   ├── urls.py                   # Routes de l'app annonces
-│   │   └── views.py                  # CatalogueView (FilterView)
+│   │   └── views.py                  # CatalogueView + cache Redis
 │   │
 │   ├── messaging/                    # 💬 Messagerie & favoris
 │   │   ├── models.py                 # Favori, Conversation, Message
@@ -574,22 +582,28 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 ### Commandes de mise en route
 
-```bash
-# 1. Installer les dépendances Python
-pip install Pillow
+```powershell
+# 1. Créer le virtualenv (à la racine de backend)
+cd backend
+python -m venv akal_env
 
-# 2. Activer PostGIS dans PostgreSQL
+# 2. Installer les dépendances Python (utilise le venv !)
+akal_env\scripts\python.exe -m pip install -r requirements.txt
+
+# 3. Activer PostGIS dans PostgreSQL
 psql -d akal_db -c "CREATE EXTENSION postgis;"
 
-# 3. Créer les migrations
-python manage.py makemigrations accounts geo annonces messaging
+# 4. Créer les migrations
+akal_env\scripts\python.exe manage.py makemigrations accounts geo annonces messaging --settings=akal.settings.dev
 
-# 4. Appliquer les migrations
-python manage.py migrate
+# 5. Appliquer les migrations
+akal_env\scripts\python.exe manage.py migrate --settings=akal.settings.dev
 
-# 5. Créer un superutilisateur
-python manage.py createsuperuser
+# 6. Créer un superutilisateur
+akal_env\scripts\python.exe manage.py createsuperuser --settings=akal.settings.dev
 ```
+
+> ⚠️ **Important** : Toujours installer les dépendances dans le **virtualenv** `akal_env`, jamais dans le Python système. Vérifiez que le venv est activé (le prompt affiche `(akal_env)`) avant de lancer `pip install`.
 
 ### Comptes par défaut (Développement)
 
@@ -663,6 +677,50 @@ parcelle.metadata  # {'culture': ['Blé', 'Olivier']}
 - 2 utilisateurs de test
 
 ---
+
+### 9.2 — `seed_test_data`
+
+> **App** : `annonces`
+> **Fichier** : `backend/annonces/management/commands/seed_test_data.py`
+
+Génère **100 000 annonces** de test pour le benchmarking de performance et les tests de charge.
+
+**Utilisation :**
+```powershell
+# Lancer le seed complet (100K par défaut)
+# Note: Sur Windows PowerShell, utiliser le flag -X utf8 pour éviter les erreurs d'encodage (UnicodeEncodeError) avec les emojis.
+akal_env\scripts\python.exe -X utf8 manage.py seed_test_data --settings=akal.settings.dev
+
+# Nombre personnalisé
+akal_env\scripts\python.exe -X utf8 manage.py seed_test_data --count 50000 --settings=akal.settings.dev
+
+# Nettoyer les données de test
+akal_env\scripts\python.exe -X utf8 manage.py seed_test_data --clear --settings=akal.settings.dev
+```
+
+**Ce que fait la commande :**
+
+| Étape | Action | Détail |
+|---|---|---|
+| 1. Géo | Crée les données géographiques | 6 régions, 12 provinces, 13 communes (`get_or_create`) |
+| 2. Utilisateurs | Crée 5 utilisateurs de test | `loadtest1@akal.ma` à `loadtest5@akal.ma` |
+| 3. Parcelles | Génère N parcelles (`bulk_create`) | Points PostGIS valides (bounding box Maroc), cultures aléatoires, lots de 5 000 |
+| 4. Annonces | Génère N annonces 1:1 (`bulk_create`) | Statut `en_ligne`, prix 50K–5M MAD, lots de 5 000 |
+
+**Optimisations :**
+- `bulk_create(batch_size=5000)` pour minimiser les allers-retours SQL
+- Génération de `Point(lon, lat, srid=4326)` PostGIS valides dans le bounding box du Maroc (lat: 27.6–35.9, lon: -13.2–-1.0)
+- `metadata.culture` contient une liste de 1 à 3 cultures aléatoires
+
+**Utilisateurs de test créés :**
+
+| Email | Nom | Rôle | Mot de passe |
+|---|---|---|---|
+| `loadtest1@akal.ma` | Youssef Bencherki | PROPRIETAIRE | `loadtest2026` |
+| `loadtest2@akal.ma` | Khadija Amrani | PROPRIETAIRE | `loadtest2026` |
+| `loadtest3@akal.ma` | Omar Tazi | PROPRIETAIRE | `loadtest2026` |
+| `loadtest4@akal.ma` | Salma Berrada | PROPRIETAIRE | `loadtest2026` |
+| `loadtest5@akal.ma` | Mehdi Idrissi | PROPRIETAIRE | `loadtest2026` |
 
 ---
 
@@ -783,7 +841,105 @@ Vue détaillée affichant la fiche complète d'une annonce et incluant un systè
 
 ---
 
-## 11 — Déploiement en Production (Docker & IaC)
+## 11 — Cache Redis & Performance
+
+Le backend utilise **Redis** comme cache via `django-redis` pour atteindre des temps de réponse < 20ms sur les requêtes de catalogue filtrées.
+
+### Infrastructure
+
+> **Fichier** : `backend/docker-compose.yml`
+
+Un service Redis 7 Alpine est provisionné via Docker Compose :
+```yaml
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+```
+
+### Configuration (`base.py`)
+
+```python
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'akal',
+        'TIMEOUT': 60,
+    }
+}
+```
+
+La variable `REDIS_URL` peut être définie dans `.env` pour surcharger l'URL par défaut.
+
+### Stratégies de cache appliquées
+
+| Vue | Stratégie | TTL | Clé de cache |
+|---|---|---|---|
+| `CatalogueView` | Cache manuel (response HTTP) | 60s | `catalogue:` + MD5 des query params triés |
+| `AnnonceDetailView` | `@cache_page(300)` | 5 min | Clé Django standard (URL-based) |
+
+**CatalogueView** — Le cache manuel est préféré à `@cache_page` car il permet de construire des clés granulaires basées sur les filtres actifs, maximisant le hit rate :
+```python
+def _build_catalogue_cache_key(query_dict):
+    sorted_params = sorted(query_dict.items())
+    raw = '&'.join(f'{k}={v}' for k, v in sorted_params)
+    return f"catalogue:{hashlib.md5(raw.encode()).hexdigest()}"
+```
+
+**AnnonceDetailView** — `@method_decorator(cache_page(300), name='dispatch')` appliqué sur toute la vue. Les détails d'annonce changent rarement, un TTL plus long est approprié.
+
+---
+
+## 12 — Test de Charge (Locust)
+
+Un script de test de charge est fourni pour valider les objectifs de performance (réponse < 20ms).
+
+> **Fichier** : `backend/locustfile.py`
+
+### Scénarios simulés
+
+| Classe | Poids | Comportement |
+|---|---|---|
+| `CatalogueBrowser` | 3 | Requêtes filtrées aléatoires sur `/annonces/` (region, statut_foncier, culture, acces_eau, prix, surface, sort) + recherche textuelle |
+| `DetailViewer` | 1 | Découverte de slugs via le catalogue puis consultation de `/annonces/<slug>/` |
+
+### Filtres aléatoires appliqués
+
+Chaque requête du `CatalogueBrowser` combine aléatoirement 1 à 4 filtres parmi :
+- `region` → `[1, 2, 3, 4, 5, 6]`
+- `statut_foncier` → `['melkia', 'soulaliya', 'guich', 'habous', 'immatricule']`
+- `culture` → `['Blé', 'Olivier', 'Arganier', 'Maraîchage', 'Agrumes', ...]`
+- `acces_eau` → `['irriguee', 'bour', 'mixte']`
+- `prix_min` / `prix_max` → fourchettes aléatoires
+- `sort` → `['prix', '-prix', 'date_publication', '-date_publication']`
+
+### Exécution du test de charge
+
+```powershell
+# 1) Lancer Redis
+cd backend
+docker compose up -d redis
+
+# 2) Seeder 100K annonces
+akal_env\scripts\python.exe -X utf8 manage.py seed_test_data --settings=akal.settings.dev
+
+# 3) Lancer le serveur Django
+# Note : -X utf8 est recommandé sur Windows pour éviter les UnicodeDecodeError avec les caractères spéciaux dans les URLs (ex: Fès, Blé)
+akal_env\scripts\python.exe -X utf8 manage.py runserver --settings=akal.settings.dev
+
+# 4) Lancer Locust (dans un second terminal, toujours depuis le dossier backend)
+akal_env\scripts\python.exe -m locust -f locustfile.py --host=http://127.0.0.1:8000
+```
+
+Puis ouvrir **http://localhost:8089** pour configurer le nombre d'utilisateurs virtuels et lancer le test.
+
+---
+
+## 13 — Déploiement en Production (Docker & IaC)
 
 Le backend AKAL est conteneurisé via Docker et configuré pour un déploiement Infrastructure as Code (IaC) sur [Render](https://render.com).
 
@@ -800,7 +956,7 @@ Le backend AKAL est conteneurisé via Docker et configuré pour un déploiement 
 
 ---
 
-## 12 — Journal des modifications
+## 14 — Journal des modifications
 
 | Date | Auteur | Description |
 |---|---|---|
@@ -813,6 +969,7 @@ Le backend AKAL est conteneurisé via Docker et configuré pour un déploiement 
 | 2026-06-30 | — | **Validation du contexte UI** : Amélioration de `CatalogueView.get_context_data` pour utiliser `filterset.form.cleaned_data` afin d'ignorer silencieusement les erreurs de typage URL et d'injecter des `active_filters` stricts au frontend. |
 | 2026-06-30 | — | **Vue Détail & Recommandations** : Création de `AnnonceDetailView` avec optimisation N+1 (`with_relations()`, `agriscore`). Ajout d'un algorithme de parcelles similaires basé sur le prix (+/- 20%) et (Région ou Culture) via requêtes `Q`. |
 | 2026-06-30 | — | **Config DevOps (Prod)** : Ajout du `Dockerfile` (PostGIS deps, Gunicorn, non-root), `.dockerignore` et `render.yaml`. Configuration de `WhiteNoise` pour les statiques. Ajout d'une condition dans `base.py` pour basculer dynamiquement le `GDAL_LIBRARY_PATH` entre Windows et Linux/Docker. |
+| 2026-07-03 | — | **Cache Redis & Test de charge** : Ajout `docker-compose.yml` (Redis 7 Alpine), configuration `CACHES` django-redis dans `base.py`, cache manuel sur `CatalogueView` (60s, clé MD5) et `@cache_page(300)` sur `AnnonceDetailView`. Création `seed_test_data.py` (100K annonces, `bulk_create` x5000, Points PostGIS Maroc). Création `locustfile.py` (2 profils : CatalogueBrowser + DetailViewer avec filtres aléatoires). |
 
 ---
 
