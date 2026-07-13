@@ -52,9 +52,6 @@ class Parcelle(models.Model):
     latitude = models.FloatField()
     longitude = models.FloatField()
     geom = gis_models.PointField(srid=4326)
-    contour = gis_models.PolygonField(
-        srid=4326, blank=True, null=True, help_text='Phase 2'
-    )
     metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -65,6 +62,30 @@ class Parcelle(models.Model):
 
     def __str__(self):
         return f"Parcelle {self.id} — {self.surface} ha"
+
+
+# ──────────────────────────────────────────────
+# DONNEES GEO — Contour géographique (§3.2)
+# ──────────────────────────────────────────────
+
+class DonneesGeo(models.Model):
+    """Données géographiques étendues d'une parcelle (contour polygonal)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    parcelle = models.OneToOneField(
+        Parcelle, on_delete=models.CASCADE, related_name='donnees_geo'
+    )
+    contour = gis_models.PolygonField(
+        srid=4326, help_text='Contour géographique de la parcelle'
+    )
+
+    class Meta:
+        db_table = 'donnees_geo'
+        verbose_name = 'Données Géo'
+        verbose_name_plural = 'Données Géo'
+
+    def __str__(self):
+        return f"DonneesGeo — {self.parcelle}"
 
 
 # ──────────────────────────────────────────────
@@ -98,7 +119,6 @@ class Annonce(models.Model):
         max_length=20, choices=StatutAnnonce.choices, default=StatutAnnonce.BROUILLON
     )
     loc_confidentielle = models.BooleanField(default=False)
-    vues = models.PositiveIntegerField(default=0)
     date_publication = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -118,6 +138,30 @@ class Annonce(models.Model):
 
     def __str__(self):
         return self.titre
+
+
+# ──────────────────────────────────────────────
+# STATISTIQUE ANNONCE — Compteurs de vues (§3.4)
+# ──────────────────────────────────────────────
+
+class StatistiqueAnnonce(models.Model):
+    """Statistiques journalières d'une annonce (vues par jour)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    annonce = models.ForeignKey(
+        Annonce, on_delete=models.CASCADE, related_name='statistiques'
+    )
+    date = models.DateField()
+    vues = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'statistique_annonce'
+        verbose_name = 'Statistique Annonce'
+        verbose_name_plural = 'Statistiques Annonces'
+        unique_together = ('annonce', 'date')
+
+    def __str__(self):
+        return f"{self.annonce} — {self.date} — {self.vues} vues"
 
 
 # ──────────────────────────────────────────────
@@ -147,11 +191,16 @@ class AgriScore(models.Model):
 
 
 # ──────────────────────────────────────────────
-# PHOTO — Images de l'annonce
+# PHOTO — Images de l'annonce (§3.6)
 # ──────────────────────────────────────────────
 
 class Photo(models.Model):
-    """Photo associée à une annonce."""
+    """
+    Photo associée à une annonce.
+
+    La photo principale est celle avec ordre=0.
+    L'ordre est unique par annonce et commence à 0.
+    """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     annonce = models.ForeignKey(
@@ -159,7 +208,6 @@ class Photo(models.Model):
     )
     image = models.ImageField(upload_to='photos/')
     ordre = models.IntegerField(default=0)
-    is_principale = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -167,6 +215,7 @@ class Photo(models.Model):
         verbose_name = 'Photo'
         verbose_name_plural = 'Photos'
         ordering = ['ordre']
+        unique_together = ('annonce', 'ordre')
 
     def __str__(self):
         return f"Photo {self.ordre} — {self.annonce}"

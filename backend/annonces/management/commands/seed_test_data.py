@@ -324,7 +324,6 @@ class Command(BaseCommand):
                 prix=Decimal(str(random.randint(50_000, 5_000_000))),
                 statut_annonce='en_ligne',
                 loc_confidentielle=random.choice([True, False]),
-                vues=random.randint(0, 500),
                 date_publication=fake.date_time_between(
                     start_date='-6M', end_date='now', tzinfo=now.tzinfo,
                 ),

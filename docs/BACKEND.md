@@ -15,11 +15,13 @@
 7. [Enums & choix prédéfinis](#7--enums--choix-prédéfinis)
 8. [Configuration & prérequis](#8--configuration--prérequis)
 9. [Management Commands](#9--management-commands)
-10. [Logique Métier & Vues](#10--logique-métier--vues)
-11. [Cache Redis & Performance](#11--cache-redis--performance)
-12. [Test de Charge (Locust)](#12--test-de-charge-locust)
-13. [Déploiement en Production (Docker & IaC)](#13--déploiement-en-production-docker--iac)
-14. [Journal des modifications](#14--journal-des-modifications)
+10. [Logique Métier & Vues (Template)](#10--logique-métier--vues-template)
+11. [API REST (DRF) & Swagger](#11--api-rest-drf--swagger)
+12. [CORS](#12--cors)
+13. [Cache Redis & Performance](#13--cache-redis--performance)
+14. [Test de Charge (Locust)](#14--test-de-charge-locust)
+15. [Déploiement en Production (Docker & IaC)](#15--déploiement-en-production-docker--iac)
+16. [Journal des modifications](#16--journal-des-modifications)
 
 ---
 
@@ -54,13 +56,16 @@
 | Composant | Technologie | Version |
 |---|---|---|
 | **Backend** | Django | 6.0.6 |
+| **API REST** | Django REST Framework (DRF) | ≥3.15.0 |
+| **Documentation API** | drf-spectacular (OpenAPI / Swagger) | ≥0.28.0 |
+| **CORS** | django-cors-headers | ≥4.6.0 |
 | **Base de données** | PostgreSQL + PostGIS | — |
 | **ORM spatial** | `django.contrib.gis` (GeoDjango) | inclus dans Django |
 | **Cache** | Redis + django-redis | 7 (Alpine) / ≥5.4.0 |
 | **Variables d'environnement** | django-environ | 0.14.0 |
 | **Driver PostgreSQL** | psycopg2-binary | 2.9.12 |
 | **Test de charge** | Locust | ≥2.29.0 |
-| **Frontend** | *(à définir)* | — |
+| **Frontend** | Next.js | — |
 
 ### Dépendances système requises
 
@@ -86,10 +91,10 @@ AKAL/
 │   │
 │   ├── akal/                         # Configuration Django
 │   │   ├── settings/
-│   │   │   ├── base.py               # Settings communs (+ CACHES Redis)
-│   │   │   ├── dev.py                # Settings développement
+│   │   │   ├── base.py               # Settings communs (DRF, CORS, CACHES, Swagger)
+│   │   │   ├── dev.py                # Settings développement (CORS_ALLOW_ALL)
 │   │   │   └── prod.py               # Settings production
-│   │   ├── urls.py                   # Routes principales
+│   │   ├── urls.py                   # Routes principales (/api/, /admin/, /api/schema/)
 │   │   ├── wsgi.py
 │   │   └── asgi.py
 │   │
@@ -101,23 +106,30 @@ AKAL/
 │   │
 │   ├── geo/                          # 🗺️ Découpage territorial
 │   │   ├── models.py                 # Region, Province, Commune
+│   │   ├── serializers.py            # 🆕 RegionSerializer (DRF)
+│   │   ├── api_views.py              # 🆕 RegionListAPIView
+│   │   ├── urls.py                   # 🆕 Routes API /api/geo/
 │   │   ├── admin.py
 │   │   ├── apps.py
 │   │   └── migrations/
 │   │
 │   ├── annonces/                     # 🏞️ Cœur métier
-│   │   ├── models.py                 # Parcelle, Annonce, AgriScore, Photo
+│   │   ├── models.py                 # Parcelle, DonneesGeo, Annonce, StatistiqueAnnonce, AgriScore, Photo
+│   │   ├── serializers.py            # 🆕 Serializers DRF (liste + détail)
+│   │   ├── api_views.py              # 🆕 Vues API REST (DRF)
+│   │   ├── api_urls.py               # 🆕 Routes API /api/annonces/
 │   │   ├── managers.py               # AnnonceManager & AnnonceQuerySet
-│   │   ├── filters.py                # AnnonceFilter (django-filter)
+│   │   ├── filters.py                # AnnonceFilter (django-filter, template views)
 │   │   ├── admin.py
 │   │   ├── apps.py
 │   │   ├── management/
 │   │   │   └── commands/
 │   │   │       ├── seed_parcelles.py  # 🌱 Seed de données fictives (18)
+│   │   │       ├── seed_demo.py       # 🆕 Seed démo intégration (~15 annonces)
 │   │   │       └── seed_test_data.py  # 🚀 Seed de charge (100K annonces)
 │   │   ├── migrations/
-│   │   ├── urls.py                   # Routes de l'app annonces
-│   │   └── views.py                  # CatalogueView + cache Redis
+│   │   ├── urls.py                   # Routes template-based (rétrocompat)
+│   │   └── views.py                  # CatalogueView + cache Redis (template)
 │   │
 │   ├── messaging/                    # 💬 Messagerie & favoris
 │   │   ├── models.py                 # Favori, Conversation, Message
@@ -129,7 +141,7 @@ AKAL/
 │       ├── photos/                   # Photos des annonces
 │       └── seed_images/              # Cache images téléchargées (seed)
 │
-├── frontend/                         # (à définir)
+├── frontend/                         # Next.js (Mégane)
 ├── docs/                             # Documentation
 │   └── BACKEND.md                    # ← Ce fichier
 └── README.md
@@ -302,9 +314,21 @@ Représente le terrain physique avec ses caractéristiques agricoles et sa géol
 | `latitude` | `FloatField` | NOT NULL | Coordonnée GPS |
 | `longitude` | `FloatField` | NOT NULL | Coordonnée GPS |
 | `geom` | `PointField` (PostGIS) | NOT NULL, SRID 4326 | Géométrie point pour requêtes spatiales |
-| `contour` | `PolygonField` (PostGIS) | NULLABLE, SRID 4326 | Contour de la parcelle *(Phase 2)* |
 | `metadata` | `JSONField` | DEFAULT `{}` | Données supplémentaires flexibles |
 | `created_at` | `DateTimeField` | Auto | Date de création |
+
+> **💡 `geom` vs `latitude`/`longitude`** : Le champ `geom` (PostGIS) permet les requêtes spatiales avancées (distance, intersection, contenu dans une zone). Les champs `latitude`/`longitude` offrent un accès simple aux coordonnées sans avoir besoin de PostGIS.
+
+#### Modèle `DonneesGeo`
+**Table** : `donnees_geo`
+
+Représente les données géographiques étendues (contour) d'une parcelle. Relation **OneToOne** avec `Parcelle`.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `parcelle` | `OneToOneField → Parcelle` | NOT NULL, CASCADE | Parcelle associée |
+| `contour` | `PolygonField` (PostGIS) | NOT NULL, SRID 4326 | Contour géographique exact |
 
 > **💡 `geom` vs `latitude`/`longitude`** : Le champ `geom` (PostGIS) permet les requêtes spatiales avancées (distance, intersection, contenu dans une zone). Les champs `latitude`/`longitude` offrent un accès simple aux coordonnées sans avoir besoin de PostGIS.
 
@@ -324,10 +348,21 @@ Représente la mise en vente d'une parcelle par un propriétaire.
 | `prix` | `DecimalField(12,2)` | NOT NULL | Prix en **MAD** (dirhams) |
 | `statut_annonce` | `CharField(20)` | DEFAULT `brouillon` | Voir [enum StatutAnnonce](#statut-annonce) |
 | `loc_confidentielle` | `BooleanField` | DEFAULT `False` | Masquer la localisation exacte |
-| `vues` | `PositiveIntegerField` | DEFAULT `0` | Compteur de vues |
 | `date_publication` | `DateTimeField` | NULLABLE | Date de mise en ligne |
 | `created_at` | `DateTimeField` | Auto | Date de création |
 | `updated_at` | `DateTimeField` | Auto | Dernière modification |
+
+#### Modèle `StatistiqueAnnonce`
+**Table** : `statistique_annonce`
+
+Compteurs de vues journaliers d'une annonce. La combinaison `(annonce, date)` est unique.
+
+| Champ | Type | Contraintes | Description |
+|---|---|---|---|
+| `id` | `UUIDField` | PK, auto | Identifiant unique |
+| `annonce` | `FK → Annonce` | NOT NULL, CASCADE | Annonce concernée |
+| `date` | `DateField` | NOT NULL | Date de la statistique |
+| `vues` | `PositiveIntegerField` | DEFAULT `0` | Nombre de vues ce jour-là |
 
 **Génération automatique du slug :**
 ```python
@@ -364,9 +399,10 @@ Photos associées à une annonce. Ordonnées par le champ `ordre`.
 | `id` | `UUIDField` | PK, auto | Identifiant unique |
 | `annonce` | `FK → Annonce` | NOT NULL, CASCADE | Annonce associée |
 | `image` | `ImageField` | NOT NULL | Fichier image (upload → `media/photos/`) |
-| `ordre` | `IntegerField` | DEFAULT `0` | Ordre d'affichage |
-| `is_principale` | `BooleanField` | DEFAULT `False` | Photo de couverture |
+| `ordre` | `IntegerField` | DEFAULT `0` | Ordre d'affichage (0 = principale) |
 | `created_at` | `DateTimeField` | Auto | Date d'upload |
+
+> **💡 Photo principale** : La photo avec `ordre = 0` est considérée comme la photo principale. L'ordre est unique par annonce.
 
 ---
 
@@ -841,7 +877,116 @@ Vue détaillée affichant la fiche complète d'une annonce et incluant un systè
 
 ---
 
-## 11 — Cache Redis & Performance
+## 11 — API REST (DRF) & Swagger
+
+L'API REST est développée avec **Django REST Framework (DRF)** et documentée avec **drf-spectacular** (OpenAPI 3), conformément au contrat d'intégration frontend/backend (§4).
+
+### 11.1 — drf-spectacular (Swagger UI)
+
+L'API est auto-documentée. En environnement de développement, l'interface Swagger UI est accessible pour tester les endpoints :
+
+*   **URL Swagger UI** : `http://localhost:8000/api/schema/swagger-ui/`
+*   **Schéma brut (YAML/JSON)** : `http://localhost:8000/api/schema/`
+
+### 11.2 — Endpoints de l'API
+
+Toutes les routes API sont préfixées par `/api/`.
+
+#### `GET /api/annonces/` (Catalogue)
+
+Liste allégée des annonces (statut `en_ligne`), paginée et filtrable.
+
+*   **Pagination** : 12 résultats par page (max 50).
+*   **Réponse type** :
+    ```json
+    {
+      "count": 142,
+      "next": "http://localhost:8000/api/annonces/?page=2",
+      "previous": null,
+      "results": [
+        {
+          "id": "uuid",
+          "slug": "terrain-irrigue-fes-1234abcd",
+          "titre": "Terrain irrigué Fès",
+          "prix_mad": "450000.00",
+          "surface_ha": "12.50",
+          "region": "Fès-Meknès",
+          "statut_foncier": "melkia",
+          "acces_eau": "irriguee",
+          "type_culture": ["Blé"],
+          "photo_principale": "http://localhost:8000/media/photos/photo_0.jpg",
+          "score_courant": {"score_global": 82.5},
+          "date_publication": "2026-07-10T14:30:00Z"
+        }
+      ]
+    }
+    ```
+*   **Filtres supportés** (`?param=value`) : `region`, `type_culture`, `statut_foncier`, `acces_eau`, `prix_min`, `prix_max`, `surface_min`, `surface_max`.
+*   **Tri supporté** (`?ordering=`) : `date_publication`, `prix`, `parcelle__surface`. (Préfixer par `-` pour décroissant).
+
+#### `GET /api/annonces/<slug>/` (Détail Annonce)
+
+Fiche complète d'une annonce spécifique.
+
+*   **Réponse type** :
+    ```json
+    {
+      "id": "uuid",
+      "slug": "terrain-irrigue-fes-1234abcd",
+      "titre": "Terrain irrigué Fès",
+      "description": "...",
+      "prix_mad": "450000.00",
+      ...
+      "parcelle": {
+        "surface": "12.50",
+        "statut_foncier": "melkia",
+        "latitude": 34.05,
+        "longitude": -5.0,
+        "region": "Fès-Meknès",
+        "province": "Fès",
+        "commune": "Fès Médina"
+      },
+      "photos": [
+        {"id": "uuid", "image": "http://.../photo_0.jpg", "ordre": 0},
+        {"id": "uuid", "image": "http://.../photo_1.jpg", "ordre": 1}
+      ],
+      "score_courant": {
+        "score_global": 82.5,
+        "sous_scores": {"sol": 85, "eau": 90},
+        "indice_confiance": 0.85
+      },
+      "proprietaire": {
+        "nom": "El Fassi",
+        "prenom": "Ahmed"
+      }
+    }
+    ```
+
+#### `GET /api/geo/regions/` (Référentiel Géo)
+
+Liste des régions du Maroc (non paginé).
+
+*   **Réponse type** :
+    ```json
+    [
+      {"id": 1, "code": "FM", "nom": "Fès-Meknès"},
+      {"id": 2, "code": "MS", "nom": "Marrakech-Safi"}
+    ]
+    ```
+
+---
+
+## 12 — CORS
+
+Le backend est configuré pour accepter les requêtes Cross-Origin Resource Sharing (CORS) provenant du frontend Next.js.
+
+*   **Package** : `django-cors-headers`
+*   **Développement (`dev.py`)** : `CORS_ALLOW_ALL_ORIGINS = True` (permet les appels depuis n'importe quelle source locale, ex: `http://localhost:3000`).
+*   **Production (`base.py` / `prod.py`)** : Seuls les domaines spécifiques (ex: le domaine final du frontend) seront autorisés via `CORS_ALLOWED_ORIGINS`.
+
+---
+
+## 13 — Cache Redis & Performance
 
 Le backend utilise **Redis** comme cache via `django-redis` pour atteindre des temps de réponse < 20ms sur les requêtes de catalogue filtrées.
 
@@ -970,7 +1115,7 @@ Le backend AKAL est conteneurisé via Docker et configuré pour un déploiement 
 | 2026-06-30 | — | **Vue Détail & Recommandations** : Création de `AnnonceDetailView` avec optimisation N+1 (`with_relations()`, `agriscore`). Ajout d'un algorithme de parcelles similaires basé sur le prix (+/- 20%) et (Région ou Culture) via requêtes `Q`. |
 | 2026-06-30 | — | **Config DevOps (Prod)** : Ajout du `Dockerfile` (PostGIS deps, Gunicorn, non-root), `.dockerignore` et `render.yaml`. Configuration de `WhiteNoise` pour les statiques. Ajout d'une condition dans `base.py` pour basculer dynamiquement le `GDAL_LIBRARY_PATH` entre Windows et Linux/Docker. |
 | 2026-07-03 | — | **Cache Redis & Test de charge** : Ajout `docker-compose.yml` (Redis 7 Alpine), configuration `CACHES` django-redis dans `base.py`, cache manuel sur `CatalogueView` (60s, clé MD5) et `@cache_page(300)` sur `AnnonceDetailView`. Création `seed_test_data.py` (100K annonces, `bulk_create` x5000, Points PostGIS Maroc). Création `locustfile.py` (2 profils : CatalogueBrowser + DetailViewer avec filtres aléatoires). |
-
+| 2026-07-13 | — | **API v2 (Intégration Frontend)** : Implémentation du contrat d'API (§4 Amélioration). I-1 : Corrections du schéma (DonneesGeo, suppression vues/contour/is_principale, ajout StatistiqueAnnonce). I-2 : Installation et config DRF, drf-spectacular (Swagger) et django-cors-headers. I-3 : Création des serializers et vues API REST (`/api/annonces/`, `/api/geo/regions/`) conformes. I-4 : Commande `seed_demo` pour générer ~15 annonces de démo complètes. |
 ---
 
 *Documentation générée et maintenue au fur et à mesure de l'avancement du projet AKAL.*

@@ -754,7 +754,6 @@ class Command(BaseCommand):
                 prix=Decimal(data['prix']),
                 statut_annonce='en_ligne',
                 date_publication=timezone.now(),
-                vues=random.randint(5, 250),
             )
             annonce.save()  # Le save() génère le slug automatiquement
 
@@ -774,7 +773,6 @@ class Command(BaseCommand):
                 photo = Photo(
                     annonce=annonce,
                     ordre=photo_idx,
-                    is_principale=(photo_idx == 0),
                 )
                 filename = f'agricole_p{idx:02d}_img{photo_idx + 1}.jpg'
                 photo.image.save(filename, ContentFile(image_data), save=True)

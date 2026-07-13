@@ -52,6 +52,9 @@ INSTALLED_APPS = [
     'django.contrib.gis',
 
     # Apps tierces
+    'rest_framework',
+    'drf_spectacular',
+    'corsheaders',
     'django_filters',
 
     # Apps du projet
@@ -64,6 +67,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -152,6 +156,42 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # ──────────────────────────────────────────────
+# DJANGO REST FRAMEWORK
+# ──────────────────────────────────────────────
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 12,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.OrderingFilter',
+    ],
+}
+
+
+# ──────────────────────────────────────────────
+# DRF-SPECTACULAR — OpenAPI / Swagger
+# ──────────────────────────────────────────────
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AKAL API',
+    'DESCRIPTION': 'API de la plateforme AKAL — vente de terrains agricoles au Maroc',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
+
+# ──────────────────────────────────────────────
+# CORS — django-cors-headers
+# ──────────────────────────────────────────────
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+]
+
+
+# ──────────────────────────────────────────────
 # CACHE — Redis via django-redis
 # ──────────────────────────────────────────────
 
@@ -166,4 +206,3 @@ CACHES = {
         'TIMEOUT': 60,  # TTL par défaut : 60 secondes
     }
 }
-
