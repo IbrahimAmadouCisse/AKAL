@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fmt, formatPrixCourt } from "@/lib/format";
 
 type Props = {
   prix: number;
@@ -15,10 +16,6 @@ const RENDEMENTS_DEFAUT: Record<string, number> = {
   Agrumes: 7,
   Polyculture: 5,
 };
-
-const fmt = new Intl.NumberFormat("fr-MA");
-const fmtK = (n: number) =>
-  n >= 1000 ? `${fmt.format(Math.round(n / 1000))} k` : fmt.format(Math.round(n));
 
 // ── Slider ─────────────────────────────────────────────────────────────────────
 
@@ -228,7 +225,7 @@ export default function SimulateurROI({ prix, culture }: Props) {
           }}
         >
           Simulation sur <strong style={{ color: "var(--color-texte)" }}>{duree} ans</strong>
-          {" · "}Capital : <strong style={{ color: "var(--color-texte)" }}>{fmtK(prix)} MAD</strong>
+          {" · "}Capital : <strong style={{ color: "var(--color-texte)" }}>{formatPrixCourt(prix)} MAD</strong>
         </div>
 
         <div style={{ padding: "0 16px" }}>
@@ -289,7 +286,7 @@ export default function SimulateurROI({ prix, culture }: Props) {
 
       <p style={{ fontSize: "11px", color: "var(--color-tertiaire)", margin: "10px 0 0", lineHeight: 1.5 }}>
         Estimation indicative. Les rendements agricoles varient selon les conditions climatiques, le
-        marché et la gestion. Aucun résultat n'est garanti.
+        marché et la gestion. Aucun résultat n&apos;est garanti.
       </p>
     </section>
   );

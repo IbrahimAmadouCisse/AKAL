@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import Link from "next/link";
 import type { Parcelle } from "@/data/parcelles";
+import { formatPrixMAD } from "@/lib/format";
 import "leaflet/dist/leaflet.css";
 
 // Icône de marker personnalisée AKAL (pin vert forêt) — évite le bug
@@ -21,8 +22,6 @@ const iconeAkal = L.divIcon({
   iconAnchor: [14, 28],
   popupAnchor: [0, -28],
 });
-
-const formatMAD = new Intl.NumberFormat("fr-MA");
 
 export default function CarteLeaflet({ parcelles }: { parcelles: Parcelle[] }) {
   // Centre approximatif du Maroc
@@ -48,7 +47,7 @@ export default function CarteLeaflet({ parcelles }: { parcelles: Parcelle[] }) {
                 {p.ville} · {p.surface} ha
               </div>
               <div style={{ fontSize: "13px", fontWeight: 600, color: "#2D6A4F" }}>
-                {formatMAD.format(p.prix)} MAD
+                {formatPrixMAD(p.prix)}
               </div>
               <Link href={`/parcelles/${p.id}`} style={{ fontSize: "12px", color: "#C4622D", textDecoration: "underline" }}>
                 Voir l&apos;annonce →

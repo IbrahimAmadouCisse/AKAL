@@ -6,13 +6,15 @@ import { X } from "@/components/icons/Icons";
 type Props = {
   parcelles: Parcelle[];
   onRetirer: (id: number) => void;
+  onComparer: () => void;
 };
 
-export default function BarreComparateur({ parcelles, onRetirer }: Props) {
-  if (parcelles.length === 0) return null;
+export default function BarreComparateur({ parcelles, onRetirer, onComparer }: Props) {
+  const visible = parcelles.length > 0;
 
   return (
     <div
+      aria-hidden={!visible}
       style={{
         position: "fixed",
         bottom: 0,
@@ -27,6 +29,9 @@ export default function BarreComparateur({ parcelles, onRetirer }: Props) {
         alignItems: "center",
         gap: "16px",
         flexWrap: "wrap",
+        transform: visible ? "translateY(0)" : "translateY(100%)",
+        transition: "transform var(--duration-base) var(--ease-premium)",
+        pointerEvents: visible ? "auto" : "none",
       }}
     >
       <span style={{ fontSize: "14px", fontWeight: 500, color: "var(--color-texte)", whiteSpace: "nowrap" }}>
@@ -61,7 +66,13 @@ export default function BarreComparateur({ parcelles, onRetirer }: Props) {
         ))}
       </div>
 
-      <button className="btn-primary" disabled={parcelles.length < 2} style={{ opacity: parcelles.length < 2 ? 0.5 : 1, whiteSpace: "nowrap" }}>
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={onComparer}
+        disabled={parcelles.length < 2}
+        style={{ opacity: parcelles.length < 2 ? 0.5 : 1, whiteSpace: "nowrap" }}
+      >
         Comparer maintenant
       </button>
     </div>

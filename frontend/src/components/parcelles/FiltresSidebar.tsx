@@ -10,6 +10,7 @@ import {
   filtresActifs,
 } from "@/data/parcelles";
 import BadgeStatut from "./BadgeStatut";
+import AccordionSection from "./AccordionSection";
 import { Search, X } from "@/components/icons/Icons";
 
 type Props = {
@@ -139,8 +140,7 @@ export default function FiltresSidebar({
           </div>
 
           {/* Cultures */}
-          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-            <legend style={labelStyle}>Type de culture</legend>
+          <AccordionSection titre="Type de culture">
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {CULTURES.map((c) => (
                 <label key={c.label} style={checkRowStyle}>
@@ -154,11 +154,10 @@ export default function FiltresSidebar({
                 </label>
               ))}
             </div>
-          </fieldset>
+          </AccordionSection>
 
           {/* Statut foncier */}
-          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-            <legend style={labelStyle}>Statut foncier</legend>
+          <AccordionSection titre="Statut foncier">
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {STATUTS.map((s) => (
                 <label key={s} style={{ ...checkRowStyle, gap: "8px" }}>
@@ -172,11 +171,10 @@ export default function FiltresSidebar({
                 </label>
               ))}
             </div>
-          </fieldset>
+          </AccordionSection>
 
           {/* Prix */}
-          <div>
-            <label style={labelStyle}>Prix (MAD)</label>
+          <AccordionSection titre="Prix (MAD)">
             <div style={{ display: "flex", gap: "8px" }}>
               <input
                 className="input"
@@ -197,11 +195,10 @@ export default function FiltresSidebar({
                 style={miniInputStyle}
               />
             </div>
-          </div>
+          </AccordionSection>
 
           {/* Surface */}
-          <div>
-            <label style={labelStyle}>Surface (ha)</label>
+          <AccordionSection titre="Surface (ha)">
             <div style={{ display: "flex", gap: "8px" }}>
               <input
                 className="input"
@@ -222,11 +219,10 @@ export default function FiltresSidebar({
                 style={miniInputStyle}
               />
             </div>
-          </div>
+          </AccordionSection>
 
           {/* Eau */}
-          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-            <legend style={labelStyle}>Accès à l&apos;eau</legend>
+          <AccordionSection titre="Accès à l'eau">
             <div style={{ display: "flex", gap: "16px" }}>
               {(["Irriguée", "Bour", "Tous"] as AccesEau[]).map((o) => (
                 <label key={o} style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", fontSize: "13px", color: "var(--color-texte)" }}>
@@ -241,7 +237,7 @@ export default function FiltresSidebar({
                 </label>
               ))}
             </div>
-          </fieldset>
+          </AccordionSection>
 
           {/* Mobile uniquement : ferme le drawer (liste déjà filtrée en live). */}
           <button className="btn-primary hidden-desktop" style={{ width: "100%" }} onClick={onAppliquer}>

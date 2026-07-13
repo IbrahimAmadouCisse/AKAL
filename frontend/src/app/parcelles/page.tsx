@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { Suspense, useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   PARCELLES,
+  REGIONS,
+  CULTURES,
   FILTRES_INITIAUX,
   filtrerParcelles,
   trierParcelles,
@@ -13,7 +16,11 @@ import CardParcelle from "@/components/parcelles/CardParcelle";
 import FiltresSidebar from "@/components/parcelles/FiltresSidebar";
 import BarreComparateur from "@/components/parcelles/BarreComparateur";
 import CarteParcelles from "@/components/parcelles/CarteParcelles";
+import CardParcelleSkeleton from "@/components/parcelles/CardParcelleSkeleton";
+import EmptyStateCatalogue from "@/components/parcelles/EmptyStateCatalogue";
+import ComparateurModal from "@/components/parcelles/ComparateurModal";
 import { Grid, Map, Filter } from "@/components/icons/Icons";
+import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
 
 const PAGE_SIZE = 4;
 
@@ -31,13 +38,42 @@ function getPaginationPages(current: number, total: number): (number | "…")[] 
 
 type ModeAffichage = "grille" | "carte";
 
+// `useSearchParams` doit être encapsulé dans un <Suspense> pour le build de
+// production (voir doc Next.js — sinon échec avec "missing-suspense-with-csr-bailout").
 export default function CataloguePage() {
+  return (
+    <Suspense fallback={null}>
+      <Catalogue />
+    </Suspense>
+  );
+}
+
+// Construit les filtres initiaux à partir des query params transmis par la
+// recherche rapide du hero (region, culture, budget_max) — pré-remplissage
+// à l'arrivée uniquement, sans synchronisation continue avec l'URL.
+function filtresDepuisParams(searchParams: URLSearchParams): FiltresState {
+  const region = searchParams.get("region");
+  const culture = searchParams.get("culture");
+  const budgetMax = Number(searchParams.get("budget_max"));
+
+  return {
+    ...FILTRES_INITIAUX,
+    region: region && (REGIONS as string[]).includes(region) ? region : FILTRES_INITIAUX.region,
+    cultures: culture && CULTURES.some((c) => c.label === culture) ? [culture] : FILTRES_INITIAUX.cultures,
+    prixMax: Number.isFinite(budgetMax) && budgetMax > 0 ? budgetMax : FILTRES_INITIAUX.prixMax,
+  };
+}
+
+function Catalogue() {
+  const searchParams = useSearchParams();
+
   const [mode, setMode] = useState<ModeAffichage>("grille");
   const [tri, setTri] = useState<Tri>("recent");
   const [page, setPage] = useState(1);
   const [comparaison, setComparaison] = useState<number[]>([]);
+  const [comparateurOuvert, setComparateurOuvert] = useState(false);
   const [sidebarOuverte, setSidebarOuverte] = useState(false);
-  const [filtres, setFiltres] = useState<FiltresState>(FILTRES_INITIAUX);
+  const [filtres, setFiltres] = useState<FiltresState>(() => filtresDepuisParams(searchParams));
 
   // Mise à jour partielle des filtres (live) — remet la pagination à 1.
   const patchFiltres = useCallback((patch: Partial<FiltresState>) => {
@@ -59,6 +95,9 @@ export default function CataloguePage() {
   const nb = parcellesVisibles.length;
   const totalPages = Math.max(1, Math.ceil(nb / PAGE_SIZE));
   const parcellesPage = parcellesVisibles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Débounce visuel du skeleton — se déclenche à chaque changement de la liste affichée.
+  const chargement = useSimulatedLoading(parcellesPage.map((p) => p.id).join(","));
 
   const toggleComparaison = (id: number) => {
     setComparaison((prev) =>
@@ -168,25 +207,7 @@ export default function CataloguePage() {
 
         {/* Contenu */}
         {nb === 0 ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "12px",
-              padding: "64px 20px",
-              textAlign: "center",
-              color: "var(--color-tertiaire)",
-            }}
-          >
-            <p style={{ fontSize: "15px", color: "var(--color-secondaire)" }}>
-              Aucune annonce ne correspond à vos critères.
-            </p>
-            <button type="button" className="btn-secondary" onClick={reinitialiser}>
-              Réinitialiser les filtres
-            </button>
-          </div>
+          <EmptyStateCatalogue onReinitialiser={reinitialiser} />
         ) : mode === "grille" ? (
           <div
             style={{
@@ -195,14 +216,16 @@ export default function CataloguePage() {
               gap: "16px",
             }}
           >
-            {parcellesPage.map((p) => (
-              <CardParcelle
-                key={p.id}
-                parcelle={p}
-                enComparaison={comparaison.includes(p.id)}
-                onToggleComparaison={toggleComparaison}
-              />
-            ))}
+            {chargement
+              ? Array.from({ length: parcellesPage.length }).map((_, i) => <CardParcelleSkeleton key={i} />)
+              : parcellesPage.map((p) => (
+                  <CardParcelle
+                    key={p.id}
+                    parcelle={p}
+                    enComparaison={comparaison.includes(p.id)}
+                    onToggleComparaison={toggleComparaison}
+                  />
+                ))}
           </div>
         ) : (
           <CarteParcelles parcelles={parcellesVisibles} />
@@ -270,7 +293,15 @@ export default function CataloguePage() {
         )}
       </main>
 
-      <BarreComparateur parcelles={parcellesComparees} onRetirer={toggleComparaison} />
+      <BarreComparateur
+        parcelles={parcellesComparees}
+        onRetirer={toggleComparaison}
+        onComparer={() => setComparateurOuvert(true)}
+      />
+
+      {comparateurOuvert && (
+        <ComparateurModal parcelles={parcellesComparees} onFermer={() => setComparateurOuvert(false)} />
+      )}
     </div>
   );
 }

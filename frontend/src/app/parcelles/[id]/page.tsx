@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { PARCELLES } from "@/data/parcelles";
 import FicheParcelle from "@/components/parcelles/FicheParcelle";
+import { fmt } from "@/lib/format";
 
 export function generateStaticParams() {
   return PARCELLES.map((p) => ({ id: String(p.id) }));
@@ -15,7 +16,6 @@ export async function generateMetadata({
   const { id } = await params;
   const p = PARCELLES.find((p) => p.id === Number(id));
   if (!p) return { title: "AKAL" };
-  const fmt = new Intl.NumberFormat("fr-MA");
   return {
     title: `${p.titre} — AKAL`,
     description: `${p.surface} ha · ${p.ville}, ${p.region} · ${fmt.format(p.prix)} MAD`,

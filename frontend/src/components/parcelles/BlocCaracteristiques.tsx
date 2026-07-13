@@ -10,8 +10,7 @@ import {
   BarChart,
   TrendingUp,
 } from "@/components/icons/Icons";
-
-const fmt = new Intl.NumberFormat("fr-MA");
+import { fmt } from "@/lib/format";
 
 const CULTURE_EMOJI: Record<string, string> = {
   Olivier: "🫒",

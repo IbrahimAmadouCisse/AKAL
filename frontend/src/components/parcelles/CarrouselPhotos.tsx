@@ -61,11 +61,11 @@ export default function CarrouselPhotos({ photos, titre, badge }: Props) {
             type="button"
             onClick={precedent}
             aria-label="Photo précédente"
+            className="carousel-arrow"
             style={{
               position: "absolute",
               left: "12px",
               top: "50%",
-              transform: "translateY(-50%)",
               zIndex: 10,
               width: "36px",
               height: "36px",
@@ -77,7 +77,6 @@ export default function CarrouselPhotos({ photos, titre, badge }: Props) {
               alignItems: "center",
               justifyContent: "center",
               boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
-              transition: "background-color 150ms ease",
             }}
           >
             <ChevronLeft size={18} style={{ color: "var(--color-nuit)" }} />
@@ -90,11 +89,11 @@ export default function CarrouselPhotos({ photos, titre, badge }: Props) {
             type="button"
             onClick={suivant}
             aria-label="Photo suivante"
+            className="carousel-arrow"
             style={{
               position: "absolute",
               right: "12px",
               top: "50%",
-              transform: "translateY(-50%)",
               zIndex: 10,
               width: "36px",
               height: "36px",
@@ -106,7 +105,6 @@ export default function CarrouselPhotos({ photos, titre, badge }: Props) {
               alignItems: "center",
               justifyContent: "center",
               boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
-              transition: "background-color 150ms ease",
             }}
           >
             <ChevronRight size={18} style={{ color: "var(--color-nuit)" }} />

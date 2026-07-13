@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ToastProvider from "@/components/toast/ToastProvider";
 
 export const metadata: Metadata = {
   title: "AKAL • ⴰⴽⴰⵍ — Plateforme foncière agricole au Maroc",
@@ -21,11 +22,13 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-        <Navbar />
-        <div style={{ flex: 1 }}>
-          {children}
-        </div>
-        <Footer />
+        <ToastProvider>
+          <Navbar />
+          <div style={{ flex: 1 }}>
+            {children}
+          </div>
+          <Footer />
+        </ToastProvider>
       </body>
     </html>
   );

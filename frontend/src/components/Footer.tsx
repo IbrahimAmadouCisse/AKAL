@@ -1,12 +1,17 @@
+import TopoLines from "@/components/decor/TopoLines";
+
 export default function Footer() {
   return (
     <footer style={{
+      position: "relative",
+      overflow: "hidden",
       backgroundColor: "var(--color-nuit)",
       color: "var(--color-menthe)",
       padding: "48px 24px 32px",
       marginTop: "auto",
     }}>
-      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+      <TopoLines color="var(--color-topo-line-invert)" />
+      <div style={{ position: "relative", zIndex: 1, maxWidth: "1280px", margin: "0 auto" }}>
 
         {/* Logo + tagline */}
         <div style={{ marginBottom: "32px" }}>
@@ -15,7 +20,7 @@ export default function Footer() {
             ⴰⴽⴰⵍ • La Terre
           </div>
           <p style={{ fontSize: "13px", color: "var(--color-menthe)", marginTop: "8px", maxWidth: "280px" }}>
-            Plateforme d'intelligence agronomique et foncière au Maroc.
+            Plateforme d&apos;intelligence agronomique et foncière au Maroc.
           </p>
         </div>
 
@@ -25,7 +30,7 @@ export default function Footer() {
           flexWrap: "wrap", gap: "12px"
         }}>
           <span style={{ fontSize: "11px", color: "var(--color-tertiaire)" }}>
-            © 2026 AKAL — Société Marocaine d'Ingénierie Immobilière
+            © 2026 AKAL — Société Marocaine d&apos;Ingénierie Immobilière
           </span>
           <span style={{ fontSize: "11px", color: "var(--color-tertiaire)" }}>
             EIGSI Casablanca
