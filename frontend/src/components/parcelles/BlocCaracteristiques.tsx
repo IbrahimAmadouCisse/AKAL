@@ -5,22 +5,12 @@ import {
   MapPin,
   Ruler,
   Shield,
-  Leaf,
   Droplets,
   BarChart,
   TrendingUp,
 } from "@/components/icons/Icons";
 
 const fmt = new Intl.NumberFormat("fr-MA");
-
-const CULTURE_EMOJI: Record<string, string> = {
-  Olivier: "🫒",
-  Maraîchage: "🍅",
-  Céréales: "🌾",
-  Vigne: "🍇",
-  Agrumes: "🍊",
-  Polyculture: "🌿",
-};
 
 type Groupe = {
   titre: string;
@@ -36,7 +26,6 @@ type ItemCarac =
 function buildGroupes(a: Parcelle): Groupe[] {
   const prixHa = a.prixM2 * 10_000;
   const surfaceM2 = Math.round(a.surface * 10_000).toLocaleString("fr-MA");
-  const emoji = CULTURE_EMOJI[a.culture] ?? "🌱";
 
   return [
     {
@@ -64,12 +53,6 @@ function buildGroupes(a: Parcelle): Groupe[] {
       titre: "Agronomie",
       accent: "#7D5C2E",
       items: [
-        {
-          type: "texte",
-          icon: <Leaf size={13} />,
-          label: "Culture",
-          valeur: `${emoji} ${a.culture}`,
-        },
         {
           type: "texte",
           icon: <Droplets size={13} />,

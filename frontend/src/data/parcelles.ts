@@ -16,7 +16,6 @@ export type Parcelle = {
   surface: number; // en hectares
   prix: number; // en MAD
   prixM2: number; // MAD/m²
-  culture: string;
   statut: StatutFoncier;
   eau: boolean;
   score: number; // AgriScore /100
@@ -37,7 +36,6 @@ export const PARCELLES: Parcelle[] = [
     surface: 4.2,
     prix: 1_260_000,
     prixM2: 30,
-    culture: "Olivier",
     statut: "Immatriculé",
     eau: true,
     score: 82,
@@ -57,7 +55,6 @@ export const PARCELLES: Parcelle[] = [
     surface: 8.7,
     prix: 2_088_000,
     prixM2: 24,
-    culture: "Maraîchage",
     statut: "Melkia",
     eau: true,
     score: 67,
@@ -77,7 +74,6 @@ export const PARCELLES: Parcelle[] = [
     surface: 15.0,
     prix: 1_800_000,
     prixM2: 12,
-    culture: "Céréales",
     statut: "Guich",
     eau: false,
     score: 54,
@@ -97,7 +93,6 @@ export const PARCELLES: Parcelle[] = [
     surface: 3.1,
     prix: 1_550_000,
     prixM2: 50,
-    culture: "Vigne",
     statut: "Immatriculé",
     eau: true,
     score: 91,
@@ -117,7 +112,6 @@ export const PARCELLES: Parcelle[] = [
     surface: 6.5,
     prix: 1_950_000,
     prixM2: 30,
-    culture: "Agrumes",
     statut: "Soulaliya",
     eau: true,
     score: 73,
@@ -137,7 +131,6 @@ export const PARCELLES: Parcelle[] = [
     surface: 22.0,
     prix: 880_000,
     prixM2: 4,
-    culture: "Polyculture",
     statut: "Melkia",
     eau: false,
     score: 41,
@@ -159,14 +152,6 @@ export const REGIONS = [
   "Oriental",
 ];
 
-export const CULTURES = [
-  { label: "Céréales", emoji: "🌾" },
-  { label: "Olivier", emoji: "🫒" },
-  { label: "Maraîchage", emoji: "🍅" },
-  { label: "Vigne", emoji: "🍇" },
-  { label: "Agrumes", emoji: "🍊" },
-];
-
 export const STATUTS: StatutFoncier[] = [
   "Immatriculé",
   "Melkia",
@@ -185,7 +170,6 @@ export type AccesEau = "Tous" | "Irriguée" | "Bour";
 export type FiltresState = {
   recherche: string;
   region: string; // "Toutes les régions" = pas de filtre
-  cultures: string[]; // vide = toutes
   statuts: StatutFoncier[]; // vide = tous
   prixMin: number | null;
   prixMax: number | null;
@@ -197,7 +181,6 @@ export type FiltresState = {
 export const FILTRES_INITIAUX: FiltresState = {
   recherche: "",
   region: "Toutes les régions",
-  cultures: [],
   statuts: [],
   prixMin: null,
   prixMax: null,
@@ -221,18 +204,15 @@ export function filtrerParcelles(
   f: FiltresState,
 ): Parcelle[] {
   return parcelles.filter((p) => {
-    // Recherche textuelle (titre, ville, région, culture)
+    // Recherche textuelle (titre, ville, région)
     if (f.recherche.trim()) {
       const q = normaliser(f.recherche.trim());
-      const cible = normaliser(`${p.titre} ${p.ville} ${p.region} ${p.culture}`);
+      const cible = normaliser(`${p.titre} ${p.ville} ${p.region}`);
       if (!cible.includes(q)) return false;
     }
 
     // Région
     if (f.region !== "Toutes les régions" && p.region !== f.region) return false;
-
-    // Cultures (multi — OU logique)
-    if (f.cultures.length > 0 && !f.cultures.includes(p.culture)) return false;
 
     // Statut foncier (multi — OU logique)
     if (f.statuts.length > 0 && !f.statuts.includes(p.statut)) return false;
@@ -277,7 +257,6 @@ export function filtresActifs(f: FiltresState): boolean {
   return (
     f.recherche.trim() !== "" ||
     f.region !== "Toutes les régions" ||
-    f.cultures.length > 0 ||
     f.statuts.length > 0 ||
     f.prixMin != null ||
     f.prixMax != null ||

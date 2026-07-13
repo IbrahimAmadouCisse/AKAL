@@ -16,7 +16,7 @@ const ETAPES = [
     num: "01",
     Icon: Search,
     titre: "Parcourez le catalogue",
-    desc: "Filtrez par région, culture et budget. Trouvez les parcelles qui correspondent à vos critères.",
+    desc: "Filtrez par région et budget. Trouvez les parcelles qui correspondent à vos critères.",
   },
   {
     num: "02",
@@ -76,12 +76,6 @@ export default function Home() {
               <option>Meknès-Tafilalet</option>
               <option>Souss-Massa</option>
               <option>Oriental</option>
-            </select>
-            <select style={heroFieldStyle} defaultValue="">
-              <option value="">Type de culture</option>
-              <option>Olivier</option>
-              <option>Céréales</option>
-              <option>Maraîchage</option>
             </select>
             <input placeholder="Budget max (MAD)" style={heroFieldStyle} />
             <Link href="/parcelles" style={{ flex: "1 1 140px" }}>

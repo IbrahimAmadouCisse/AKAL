@@ -2,7 +2,6 @@
 
 import {
   REGIONS,
-  CULTURES,
   STATUTS,
   type FiltresState,
   type StatutFoncier,
@@ -38,14 +37,6 @@ export default function FiltresSidebar({
   onAppliquer,
 }: Props) {
   const f = filtres;
-
-  const toggleCulture = (label: string) => {
-    onChange({
-      cultures: f.cultures.includes(label)
-        ? f.cultures.filter((c) => c !== label)
-        : [...f.cultures, label],
-    });
-  };
 
   const toggleStatut = (statut: StatutFoncier) => {
     onChange({
@@ -137,24 +128,6 @@ export default function FiltresSidebar({
               ))}
             </select>
           </div>
-
-          {/* Cultures */}
-          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-            <legend style={labelStyle}>Type de culture</legend>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              {CULTURES.map((c) => (
-                <label key={c.label} style={checkRowStyle}>
-                  <input
-                    type="checkbox"
-                    checked={f.cultures.includes(c.label)}
-                    onChange={() => toggleCulture(c.label)}
-                    style={{ width: "14px", height: "14px", accentColor: "var(--color-foret)" }}
-                  />
-                  <span>{c.emoji} {c.label}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
 
           {/* Statut foncier */}
           <fieldset style={{ border: "none", padding: 0, margin: 0 }}>

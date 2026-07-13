@@ -4,17 +4,11 @@ import { useState } from "react";
 
 type Props = {
   prix: number;
-  culture: string;
 };
 
-const RENDEMENTS_DEFAUT: Record<string, number> = {
-  Olivier: 5,
-  Maraîchage: 8,
-  Céréales: 4,
-  Vigne: 7,
-  Agrumes: 7,
-  Polyculture: 5,
-};
+// Rendement de départ neutre — l'utilisateur ajuste selon sa propre estimation ;
+// on évite de suggérer un chiffre par type de culture (donnée d'opinion, pas stable).
+const RENDEMENT_DEFAUT = 5;
 
 const fmt = new Intl.NumberFormat("fr-MA");
 const fmtK = (n: number) =>
@@ -110,16 +104,14 @@ function LigneResultat({
 
 // ── Composant principal ─────────────────────────────────────────────────────────
 
-export default function SimulateurROI({ prix, culture }: Props) {
-  const rendementDefaut = RENDEMENTS_DEFAUT[culture] ?? 5;
-
-  const [rendement, setRendement] = useState(rendementDefaut);
+export default function SimulateurROI({ prix }: Props) {
+  const [rendement, setRendement] = useState(RENDEMENT_DEFAUT);
   const [appreciation, setAppreciation] = useState(3);
   const [duree, setDuree] = useState(7);
   const [charges, setCharges] = useState(1.5);
 
   const reset = () => {
-    setRendement(rendementDefaut);
+    setRendement(RENDEMENT_DEFAUT);
     setAppreciation(3);
     setDuree(7);
     setCharges(1.5);

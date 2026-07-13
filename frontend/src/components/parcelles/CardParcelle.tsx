@@ -106,7 +106,7 @@ export default function CardParcelle({ parcelle, enComparaison, onToggleComparai
 
         {/* Tags */}
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
-          {[`${a.surface} ha`, `${a.prixM2} MAD/m²`, a.culture].map((t) => (
+          {[`${a.surface} ha`, `${a.prixM2} MAD/m²`].map((t) => (
             <span
               key={t}
               style={{

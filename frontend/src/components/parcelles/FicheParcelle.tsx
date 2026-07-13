@@ -184,7 +184,7 @@ export default function FicheParcelle({ parcelle: a }: { parcelle: Parcelle }) {
             </div>
           </section>
 
-          <SimulateurROI prix={a.prix} culture={a.culture} />
+          <SimulateurROI prix={a.prix} />
 
           {/* Localisation */}
           <section>
