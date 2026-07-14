@@ -1,45 +1,131 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  PARCELLES,
   FILTRES_INITIAUX,
-  filtrerParcelles,
-  trierParcelles,
+  filtresActifs,
+  filtresVersParams,
+  filtrerRecherche,
+  getParcelles,
+  getParcellesPage,
+  getRegions,
   type FiltresState,
+  type ParcellesPage,
+  type Region,
   type Tri,
 } from "@/data/parcelles";
 import CardParcelle from "@/components/parcelles/CardParcelle";
+import CardParcelleSkeleton from "@/components/parcelles/CardParcelleSkeleton";
 import FiltresSidebar from "@/components/parcelles/FiltresSidebar";
 import BarreComparateur from "@/components/parcelles/BarreComparateur";
 import CarteParcelles from "@/components/parcelles/CarteParcelles";
 import { Grid, Map, Filter } from "@/components/icons/Icons";
 
-const PAGE_SIZE = 4;
+type ModeAffichage = "grille" | "carte";
+const PAGE_SIZE = 12;
+const NB_SKELETONS = 8;
 
-function getPaginationPages(current: number, total: number): (number | "…")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | "…")[] = [1];
-  if (current > 3) pages.push("…");
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-    pages.push(i);
-  }
-  if (current < total - 2) pages.push("…");
-  pages.push(total);
-  return pages;
+// ── URL ↔ état (persistance des filtres, §M-3 : "URL partageable") ──────────
+function lireDepuisUrl(sp: URLSearchParams): { filtres: FiltresState; tri: Tri; page: number } {
+  return {
+    filtres: {
+      recherche: sp.get("q") ?? "",
+      region: sp.get("region") ?? "",
+      statutFoncier: (sp.get("statut_foncier") as FiltresState["statutFoncier"]) ?? "",
+      eau: (sp.get("eau") as FiltresState["eau"]) ?? "tous",
+      prixMin: sp.has("prix_min") ? Number(sp.get("prix_min")) : null,
+      prixMax: sp.has("prix_max") ? Number(sp.get("prix_max")) : null,
+      surfaceMin: sp.has("surface_min") ? Number(sp.get("surface_min")) : null,
+      surfaceMax: sp.has("surface_max") ? Number(sp.get("surface_max")) : null,
+    },
+    tri: (sp.get("tri") as Tri) ?? "recent",
+    page: sp.has("page") ? Math.max(1, Number(sp.get("page")) || 1) : 1,
+  };
 }
 
-type ModeAffichage = "grille" | "carte";
+function versUrl(filtres: FiltresState, tri: Tri, page: number): string {
+  const sp = new URLSearchParams();
+  if (filtres.recherche) sp.set("q", filtres.recherche);
+  if (filtres.region) sp.set("region", filtres.region);
+  if (filtres.statutFoncier) sp.set("statut_foncier", filtres.statutFoncier);
+  if (filtres.eau !== "tous") sp.set("eau", filtres.eau);
+  if (filtres.prixMin != null) sp.set("prix_min", String(filtres.prixMin));
+  if (filtres.prixMax != null) sp.set("prix_max", String(filtres.prixMax));
+  if (filtres.surfaceMin != null) sp.set("surface_min", String(filtres.surfaceMin));
+  if (filtres.surfaceMax != null) sp.set("surface_max", String(filtres.surfaceMax));
+  if (tri !== "recent") sp.set("tri", tri);
+  if (page !== 1) sp.set("page", String(page));
+  const qs = sp.toString();
+  return qs ? `/parcelles?${qs}` : "/parcelles";
+}
 
+// `useSearchParams` doit être encapsulé dans un <Suspense> pour le build de
+// production (voir doc Next.js — sinon échec avec "missing-suspense-with-csr-bailout").
 export default function CataloguePage() {
-  const [mode, setMode] = useState<ModeAffichage>("grille");
-  const [tri, setTri] = useState<Tri>("recent");
-  const [page, setPage] = useState(1);
-  const [comparaison, setComparaison] = useState<number[]>([]);
-  const [sidebarOuverte, setSidebarOuverte] = useState(false);
-  const [filtres, setFiltres] = useState<FiltresState>(FILTRES_INITIAUX);
+  return (
+    <Suspense fallback={null}>
+      <Catalogue />
+    </Suspense>
+  );
+}
 
-  // Mise à jour partielle des filtres (live) — remet la pagination à 1.
+function Catalogue() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // Lu une seule fois au montage : les changements ultérieurs de l'URL sont
+  // ceux que CE composant écrit lui-même (voir l'effet de synchronisation plus bas).
+  const initial = useMemo(() => lireDepuisUrl(searchParams), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [mode, setMode] = useState<ModeAffichage>("grille");
+  const [tri, setTri] = useState<Tri>(initial.tri);
+  const [page, setPage] = useState(initial.page);
+  const [filtres, setFiltres] = useState<FiltresState>(initial.filtres);
+  const [sidebarOuverte, setSidebarOuverte] = useState(false);
+  const [comparaison, setComparaison] = useState<string[]>([]);
+
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [donnees, setDonnees] = useState<ParcellesPage | null>(null);
+  const [chargement, setChargement] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
+
+  // Régions du filtre — chargées une fois (référentiel non paginé, §4.1).
+  useEffect(() => {
+    getRegions()
+      .then(setRegions)
+      .catch(() => setRegions([]));
+  }, []);
+
+  // Annonces — rechargées à chaque changement de filtres/tri/page. Toujours
+  // piloté par les query params du contrat (§4.2), jamais par les URLs
+  // next/previous ici (celles-ci ne servent qu'à la pagination Précédent/Suivant,
+  // cf. allerPage ci-dessous — pas de recalcul de page, §4.3).
+  useEffect(() => {
+    let annule = false;
+    setChargement(true);
+    setErreur(null);
+
+    getParcelles(filtresVersParams(filtres, tri, page, PAGE_SIZE))
+      .then((res) => {
+        if (!annule) setDonnees(res);
+      })
+      .catch((err) => {
+        if (!annule) setErreur(err instanceof Error ? err.message : "Erreur de chargement du catalogue.");
+      })
+      .finally(() => {
+        if (!annule) setChargement(false);
+      });
+
+    return () => {
+      annule = true;
+    };
+  }, [filtres, tri, page]);
+
+  // URL partageable — navigation sans rechargement complet (router.replace shallow).
+  useEffect(() => {
+    router.replace(versUrl(filtres, tri, page), { scroll: false });
+  }, [filtres, tri, page, router]);
+
   const patchFiltres = useCallback((patch: Partial<FiltresState>) => {
     setFiltres((prev) => ({ ...prev, ...patch }));
     setPage(1);
@@ -50,27 +136,33 @@ export default function CataloguePage() {
     setPage(1);
   }, []);
 
-  // Liste filtrée + triée, recalculée à chaque changement (temps réel).
-  const parcellesVisibles = useMemo(
-    () => trierParcelles(filtrerParcelles(PARCELLES, filtres), tri),
-    [filtres, tri],
-  );
-
-  const nb = parcellesVisibles.length;
-  const totalPages = Math.max(1, Math.ceil(nb / PAGE_SIZE));
-  const parcellesPage = parcellesVisibles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const toggleComparaison = (id: number) => {
-    setComparaison((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : prev.length < 3
-          ? [...prev, id]
-          : prev, // max 3
-    );
+  // Pagination : consomme directement `next`/`previous` (URLs absolues) —
+  // aucun recalcul de numéro de page côté front (contrat §4.3).
+  const allerPage = (url: string | null | undefined, direction: 1 | -1) => {
+    if (!url) return;
+    setChargement(true);
+    setErreur(null);
+    getParcellesPage(url)
+      .then((res) => {
+        setDonnees(res);
+        setPage((p) => p + direction);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      })
+      .catch((err) => setErreur(err instanceof Error ? err.message : "Erreur de chargement."))
+      .finally(() => setChargement(false));
   };
 
-  const parcellesComparees = PARCELLES.filter((p) => comparaison.includes(p.id));
+  const resultats = donnees?.results ?? [];
+  // Recherche texte : filtre côté client, limité à la page actuellement
+  // chargée — voir le commentaire sur FiltresState.recherche (data/parcelles.ts).
+  const resultatsAffiches = filtrerRecherche(resultats, filtres.recherche);
+
+  const toggleComparaison = (id: string) => {
+    setComparaison((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 3 ? [...prev, id] : prev,
+    );
+  };
+  const parcellesComparees = resultats.filter((p) => comparaison.includes(p.id));
 
   return (
     <div className="catalogue" style={{ display: "flex", minHeight: "calc(100vh - 64px)", backgroundColor: "var(--color-fond)" }}>
@@ -80,6 +172,7 @@ export default function CataloguePage() {
         filtres={filtres}
         onChange={patchFiltres}
         onReinitialiser={reinitialiser}
+        regions={regions}
         onAppliquer={() => setSidebarOuverte(false)}
       />
 
@@ -117,8 +210,11 @@ export default function CataloguePage() {
               <Filter size={14} /> Filtres
             </button>
             <span aria-live="polite" style={{ fontSize: "14px", color: "var(--color-secondaire)" }}>
-              <strong style={{ color: "var(--color-texte)" }}>{nb}</strong>{" "}
-              {nb <= 1 ? "annonce affichée" : "annonces affichées"}
+              <strong style={{ color: "var(--color-texte)" }}>{resultatsAffiches.length}</strong>{" "}
+              {resultatsAffiches.length <= 1 ? "annonce affichée" : "annonces affichées"}
+              {donnees && donnees.count > donnees.results.length && (
+                <> sur <strong style={{ color: "var(--color-texte)" }}>{donnees.count}</strong> au total</>
+              )}
             </span>
           </div>
 
@@ -139,7 +235,6 @@ export default function CataloguePage() {
               <option value="prix_asc">Prix croissant</option>
               <option value="prix_desc">Prix décroissant</option>
               <option value="surface">Superficie</option>
-              <option value="score">AgriScore</option>
             </select>
 
             {/* Toggle grille / carte */}
@@ -167,17 +262,40 @@ export default function CataloguePage() {
         </div>
 
         {/* Contenu */}
-        {nb === 0 ? (
+        {erreur ? (
+          <div
+            role="alert"
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              gap: "12px", padding: "64px 20px", textAlign: "center",
+            }}
+          >
+            <p style={{ fontSize: "15px", color: "var(--color-terre)" }}>{erreur}</p>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setFiltres((f) => ({ ...f }))}
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : chargement ? (
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "12px",
-              padding: "64px 20px",
-              textAlign: "center",
-              color: "var(--color-tertiaire)",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: "16px",
+            }}
+          >
+            {Array.from({ length: NB_SKELETONS }).map((_, i) => (
+              <CardParcelleSkeleton key={i} />
+            ))}
+          </div>
+        ) : resultatsAffiches.length === 0 ? (
+          <div
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              gap: "12px", padding: "64px 20px", textAlign: "center", color: "var(--color-tertiaire)",
             }}
           >
             <p style={{ fontSize: "15px", color: "var(--color-secondaire)" }}>
@@ -195,7 +313,7 @@ export default function CataloguePage() {
               gap: "16px",
             }}
           >
-            {parcellesPage.map((p) => (
+            {resultatsAffiches.map((p) => (
               <CardParcelle
                 key={p.id}
                 parcelle={p}
@@ -205,66 +323,32 @@ export default function CataloguePage() {
             ))}
           </div>
         ) : (
-          <CarteParcelles parcelles={parcellesVisibles} />
+          <CarteParcelles parcelles={resultatsAffiches} />
         )}
 
-        {nb > 0 && totalPages > 1 && (
+        {!erreur && !chargement && (donnees?.next || donnees?.previous) && (
           <nav
             aria-label="Pagination"
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginTop: "32px" }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginTop: "32px" }}
           >
-            {/* Précédent */}
             <button
               type="button"
-              onClick={() => setPage((p) => p - 1)}
-              disabled={page === 1}
-              aria-label="Page précédente"
-              style={{
-                width: "32px", height: "32px", borderRadius: "8px", fontSize: "14px",
-                border: "1px solid var(--color-bordure)", backgroundColor: "white",
-                cursor: page === 1 ? "default" : "pointer",
-                color: page === 1 ? "var(--color-tertiaire)" : "var(--color-texte)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
+              onClick={() => allerPage(donnees?.previous, -1)}
+              disabled={!donnees?.previous}
+              className="btn-secondary"
+              style={{ opacity: donnees?.previous ? 1 : 0.5, cursor: donnees?.previous ? "pointer" : "default" }}
             >
-              ‹
+              ‹ Page précédente
             </button>
-
-            {getPaginationPages(page, totalPages).map((p, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => typeof p === "number" && setPage(p)}
-                disabled={p === "…"}
-                aria-current={p === page ? "page" : undefined}
-                style={{
-                  width: "32px", height: "32px", borderRadius: "8px",
-                  fontSize: "12px", fontWeight: 500,
-                  border: `1px solid ${p === page ? "var(--color-foret)" : "var(--color-bordure)"}`,
-                  backgroundColor: p === page ? "var(--color-foret)" : "white",
-                  color: p === page ? "white" : p === "…" ? "var(--color-tertiaire)" : "var(--color-texte)",
-                  cursor: p === "…" ? "default" : "pointer",
-                }}
-              >
-                {p}
-              </button>
-            ))}
-
-            {/* Suivant */}
+            <span style={{ fontSize: "13px", color: "var(--color-tertiaire)" }}>Page {page}</span>
             <button
               type="button"
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page === totalPages}
-              aria-label="Page suivante"
-              style={{
-                width: "32px", height: "32px", borderRadius: "8px", fontSize: "14px",
-                border: "1px solid var(--color-bordure)", backgroundColor: "white",
-                cursor: page === totalPages ? "default" : "pointer",
-                color: page === totalPages ? "var(--color-tertiaire)" : "var(--color-texte)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
+              onClick={() => allerPage(donnees?.next, 1)}
+              disabled={!donnees?.next}
+              className="btn-secondary"
+              style={{ opacity: donnees?.next ? 1 : 0.5, cursor: donnees?.next ? "pointer" : "default" }}
             >
-              ›
+              Page suivante ›
             </button>
           </nav>
         )}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import type { Parcelle } from "@/data/parcelles";
+import type { Parcelle } from "@/types/parcelle";
 import BadgeStatut from "./BadgeStatut";
 import ScoreBar from "./ScoreBar";
 import { MapPin, Heart, Droplets } from "@/components/icons/Icons";
@@ -11,7 +11,7 @@ import { MapPin, Heart, Droplets } from "@/components/icons/Icons";
 type Props = {
   parcelle: Parcelle;
   enComparaison: boolean;
-  onToggleComparaison: (id: number) => void;
+  onToggleComparaison: (id: string) => void;
 };
 
 const formatMAD = new Intl.NumberFormat("fr-MA");
@@ -19,18 +19,21 @@ const formatMAD = new Intl.NumberFormat("fr-MA");
 export default function CardParcelle({ parcelle, enComparaison, onToggleComparaison }: Props) {
   const [favori, setFavori] = useState(false);
   const a = parcelle;
+  const image = a.photoPrincipale ?? a.photos[0] ?? null;
 
   return (
     <article className="card" style={{ overflow: "hidden" }}>
       {/* Photo */}
-      <div style={{ position: "relative", width: "100%", paddingBottom: "70%" }}>
-        <Image
-          src={a.photos[0]}
-          alt={a.titre}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
-          style={{ objectFit: "cover" }}
-        />
+      <div style={{ position: "relative", width: "100%", paddingBottom: "70%", backgroundColor: "var(--color-menthe)" }}>
+        {image && (
+          <Image
+            src={image}
+            alt={a.titre}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+            style={{ objectFit: "cover" }}
+          />
+        )}
 
         {/* Badges en surimpression */}
         <div
@@ -58,7 +61,7 @@ export default function CardParcelle({ parcelle, enComparaison, onToggleComparai
               {a.badge}
             </span>
           )}
-          <BadgeStatut statut={a.statut} />
+          <BadgeStatut statut={a.parcelle.statutFoncier} />
         </div>
 
         {/* Favori */}
@@ -93,7 +96,7 @@ export default function CardParcelle({ parcelle, enComparaison, onToggleComparai
 
       {/* Corps */}
       <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
-        <Link href={`/parcelles/${a.id}`} style={{ textDecoration: "none" }}>
+        <Link href={`/parcelles/${a.slug}`} style={{ textDecoration: "none" }}>
           <h3 style={{ fontSize: "14px", fontWeight: 500, lineHeight: 1.3, color: "var(--color-foret)" }}>
             {a.titre}
           </h3>
@@ -101,12 +104,13 @@ export default function CardParcelle({ parcelle, enComparaison, onToggleComparai
 
         <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "var(--color-tertiaire)" }}>
           <MapPin size={11} />
-          <span>{a.ville}, {a.region}</span>
+          {/* Pas d'adresse approximative en liste (allégé, contrat §4.4) — région seule ici. */}
+          <span>{a.parcelle.regionNom}</span>
         </div>
 
         {/* Tags */}
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
-          {[`${a.surface} ha`, `${a.prixM2} MAD/m²`].map((t) => (
+          {[`${a.parcelle.surface} ha`, `${a.prixM2} MAD/m²`].map((t) => (
             <span
               key={t}
               style={{
@@ -121,10 +125,12 @@ export default function CardParcelle({ parcelle, enComparaison, onToggleComparai
               {t}
             </span>
           ))}
-          {a.eau && <Droplets size={13} style={{ color: "#2196F3" }} aria-label="Accès à l'eau" />}
+          {a.parcelle.accesEau !== "bour" && (
+            <Droplets size={13} style={{ color: "#2196F3" }} aria-label="Accès à l'eau" />
+          )}
         </div>
 
-        <ScoreBar score={a.score} />
+        <ScoreBar score={a.scoreCourant?.scoreGlobal ?? null} />
 
         {/* Prix + comparateur */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "2px" }}>

@@ -1,11 +1,11 @@
 "use client";
 
-import type { Parcelle } from "@/data/parcelles";
+import type { Parcelle } from "@/types/parcelle";
 import { X } from "@/components/icons/Icons";
 
 type Props = {
   parcelles: Parcelle[];
-  onRetirer: (id: number) => void;
+  onRetirer: (id: string) => void;
 };
 
 export default function BarreComparateur({ parcelles, onRetirer }: Props) {

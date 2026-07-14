@@ -1,14 +1,13 @@
 "use client";
 
 import {
-  REGIONS,
+  ACCES_EAU_OPTIONS,
   STATUTS,
   type FiltresState,
-  type StatutFoncier,
-  type AccesEau,
+  type Region,
   filtresActifs,
 } from "@/data/parcelles";
-import BadgeStatut from "./BadgeStatut";
+import { STATUT_FONCIER_LABEL } from "./BadgeStatut";
 import { Search, X } from "@/components/icons/Icons";
 
 type Props = {
@@ -17,6 +16,9 @@ type Props = {
   filtres: FiltresState;
   onChange: (patch: Partial<FiltresState>) => void;
   onReinitialiser: () => void;
+  // Régions chargées une seule fois par la page catalogue (GET /api/geo/regions/),
+  // pas ici — évite un fetch par instance de sidebar.
+  regions: Region[];
   // Mobile : ferme simplement le drawer (la liste est déjà à jour en live).
   onAppliquer: () => void;
 };
@@ -34,17 +36,10 @@ export default function FiltresSidebar({
   filtres,
   onChange,
   onReinitialiser,
+  regions,
   onAppliquer,
 }: Props) {
   const f = filtres;
-
-  const toggleStatut = (statut: StatutFoncier) => {
-    onChange({
-      statuts: f.statuts.includes(statut)
-        ? f.statuts.filter((s) => s !== statut)
-        : [...f.statuts, statut],
-    });
-  };
 
   return (
     <>
@@ -99,7 +94,8 @@ export default function FiltresSidebar({
             </div>
           </div>
 
-          {/* Recherche textuelle */}
+          {/* Recherche textuelle — limitée à la page actuellement chargée
+              (pas de paramètre `q=` documenté côté API, cf. lib/parcelles.ts). */}
           <div style={{ position: "relative" }}>
             <Search
               size={14}
@@ -107,7 +103,7 @@ export default function FiltresSidebar({
             />
             <input
               className="input"
-              placeholder="Rechercher une annonce…"
+              placeholder="Rechercher dans cette page…"
               value={f.recherche}
               onChange={(e) => onChange({ recherche: e.target.value })}
               style={{ height: "44px", paddingLeft: "36px", fontSize: "14px" }}
@@ -123,29 +119,29 @@ export default function FiltresSidebar({
               onChange={(e) => onChange({ region: e.target.value })}
               style={{ height: "44px", fontSize: "14px" }}
             >
-              {REGIONS.map((r) => (
-                <option key={r}>{r}</option>
+              <option value="">Toutes les régions</option>
+              {regions.map((r) => (
+                <option key={r.code} value={r.code}>{r.nom}</option>
               ))}
             </select>
           </div>
 
-          {/* Statut foncier */}
-          <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
-            <legend style={labelStyle}>Statut foncier</legend>
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {/* Statut foncier — select unique : le contrat ne documente pas de
+              multi-valeurs pour ce filtre (§4.2). */}
+          <div>
+            <label style={labelStyle}>Statut foncier</label>
+            <select
+              className="input"
+              value={f.statutFoncier}
+              onChange={(e) => onChange({ statutFoncier: e.target.value as FiltresState["statutFoncier"] })}
+              style={{ height: "44px", fontSize: "14px" }}
+            >
+              <option value="">Tous les statuts</option>
               {STATUTS.map((s) => (
-                <label key={s} style={{ ...checkRowStyle, gap: "8px" }}>
-                  <input
-                    type="checkbox"
-                    checked={f.statuts.includes(s)}
-                    onChange={() => toggleStatut(s)}
-                    style={{ width: "14px", height: "14px", accentColor: "var(--color-foret)" }}
-                  />
-                  <BadgeStatut statut={s} />
-                </label>
+                <option key={s} value={s}>{STATUT_FONCIER_LABEL[s].label}</option>
               ))}
-            </div>
-          </fieldset>
+            </select>
+          </div>
 
           {/* Prix */}
           <div>
@@ -200,17 +196,27 @@ export default function FiltresSidebar({
           {/* Eau */}
           <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
             <legend style={labelStyle}>Accès à l&apos;eau</legend>
-            <div style={{ display: "flex", gap: "16px" }}>
-              {(["Irriguée", "Bour", "Tous"] as AccesEau[]).map((o) => (
-                <label key={o} style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", fontSize: "13px", color: "var(--color-texte)" }}>
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", fontSize: "13px", color: "var(--color-texte)" }}>
+                <input
+                  type="radio"
+                  name="eau"
+                  checked={f.eau === "tous"}
+                  onChange={() => onChange({ eau: "tous" })}
+                  style={{ accentColor: "var(--color-foret)" }}
+                />{" "}
+                Tous
+              </label>
+              {ACCES_EAU_OPTIONS.map((o) => (
+                <label key={o.value} style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", fontSize: "13px", color: "var(--color-texte)" }}>
                   <input
                     type="radio"
                     name="eau"
-                    checked={f.eau === o}
-                    onChange={() => onChange({ eau: o })}
+                    checked={f.eau === o.value}
+                    onChange={() => onChange({ eau: o.value })}
                     style={{ accentColor: "var(--color-foret)" }}
                   />{" "}
-                  {o}
+                  {o.label}
                 </label>
               ))}
             </div>
@@ -232,15 +238,6 @@ const labelStyle: React.CSSProperties = {
   fontWeight: 500,
   marginBottom: "8px",
   color: "var(--color-secondaire)",
-};
-
-const checkRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  cursor: "pointer",
-  fontSize: "14px",
-  color: "var(--color-texte)",
 };
 
 const miniInputStyle: React.CSSProperties = {

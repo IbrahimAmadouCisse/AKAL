@@ -3,7 +3,7 @@
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import Link from "next/link";
-import type { Parcelle } from "@/data/parcelles";
+import type { Parcelle } from "@/types/parcelle";
 import "leaflet/dist/leaflet.css";
 
 // Icône de marker personnalisée AKAL (pin vert forêt) — évite le bug
@@ -40,17 +40,21 @@ export default function CarteLeaflet({ parcelles }: { parcelles: Parcelle[] }) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {parcelles.map((p) => (
-        <Marker key={p.id} position={p.coords} icon={iconeAkal}>
+        <Marker
+          key={p.id}
+          position={[p.parcelle.latitude, p.parcelle.longitude]}
+          icon={iconeAkal}
+        >
           <Popup>
             <div style={{ minWidth: "160px" }}>
               <strong style={{ fontSize: "13px", color: "#2D6A4F" }}>{p.titre}</strong>
               <div style={{ fontSize: "12px", color: "#555", margin: "4px 0" }}>
-                {p.ville} · {p.surface} ha
+                {p.parcelle.regionNom} · {p.parcelle.surface} ha
               </div>
               <div style={{ fontSize: "13px", fontWeight: 600, color: "#2D6A4F" }}>
                 {formatMAD.format(p.prix)} MAD
               </div>
-              <Link href={`/parcelles/${p.id}`} style={{ fontSize: "12px", color: "#C4622D", textDecoration: "underline" }}>
+              <Link href={`/parcelles/${p.slug}`} style={{ fontSize: "12px", color: "#C4622D", textDecoration: "underline" }}>
                 Voir l&apos;annonce →
               </Link>
             </div>

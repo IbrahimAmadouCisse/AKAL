@@ -1,4 +1,4 @@
-import type { Parcelle } from "@/data/parcelles";
+import type { Parcelle } from "@/types/parcelle";
 import BadgeStatut from "./BadgeStatut";
 import ScoreBar from "./ScoreBar";
 import {
@@ -21,19 +21,30 @@ type Groupe = {
 type ItemCarac =
   | { type: "texte"; icon: React.ReactNode; label: string; valeur: string; couleur?: string }
   | { type: "badge"; icon: React.ReactNode; label: string; parcelle: Parcelle }
-  | { type: "score"; icon: React.ReactNode; label: string; score: number };
+  | { type: "score"; icon: React.ReactNode; label: string; score: number | null };
+
+const ACCES_EAU_LABEL: Record<Parcelle["parcelle"]["accesEau"], string> = {
+  irriguee: "Irriguée (réseau)",
+  bour: "Bour (pluviale)",
+  mixte: "Mixte",
+};
 
 function buildGroupes(a: Parcelle): Groupe[] {
   const prixHa = a.prixM2 * 10_000;
-  const surfaceM2 = Math.round(a.surface * 10_000).toLocaleString("fr-MA");
+  const surfaceM2 = Math.round(a.parcelle.surface * 10_000).toLocaleString("fr-MA");
 
   return [
     {
       titre: "Localisation",
       accent: "var(--color-foret)",
       items: [
-        { type: "texte", icon: <MapPin size={13} />, label: "Région", valeur: a.region },
-        { type: "texte", icon: <MapPin size={13} />, label: "Ville / Douar", valeur: a.ville },
+        { type: "texte", icon: <MapPin size={13} />, label: "Région", valeur: a.parcelle.regionNom },
+        {
+          type: "texte",
+          icon: <MapPin size={13} />,
+          label: "Localisation",
+          valeur: a.parcelle.adresseApproximative ?? "Communiquée après contact",
+        },
       ],
     },
     {
@@ -44,7 +55,7 @@ function buildGroupes(a: Parcelle): Groupe[] {
           type: "texte",
           icon: <Ruler size={13} />,
           label: "Superficie",
-          valeur: `${a.surface} ha · ${surfaceM2} m²`,
+          valeur: `${a.parcelle.surface} ha · ${surfaceM2} m²`,
         },
         { type: "badge", icon: <Shield size={13} />, label: "Statut foncier", parcelle: a },
       ],
@@ -57,10 +68,15 @@ function buildGroupes(a: Parcelle): Groupe[] {
           type: "texte",
           icon: <Droplets size={13} />,
           label: "Accès à l'eau",
-          valeur: a.eau ? "Irriguée (réseau)" : "Bour (pluviale)",
-          couleur: a.eau ? "#1A6EA4" : "var(--color-tertiaire)",
+          valeur: ACCES_EAU_LABEL[a.parcelle.accesEau],
+          couleur: a.parcelle.accesEau === "bour" ? "var(--color-tertiaire)" : "#1A6EA4",
         },
-        { type: "score", icon: <BarChart size={13} />, label: "AgriScore", score: a.score },
+        {
+          type: "score",
+          icon: <BarChart size={13} />,
+          label: "AgriScore",
+          score: a.scoreCourant?.scoreGlobal ?? null,
+        },
       ],
     },
     {
@@ -116,7 +132,7 @@ function RowItem({ item }: { item: ItemCarac }) {
       )}
       {item.type === "badge" && (
         <span style={{ flex: 1 }}>
-          <BadgeStatut statut={item.parcelle.statut} />
+          <BadgeStatut statut={item.parcelle.parcelle.statutFoncier} />
         </span>
       )}
       {item.type === "score" && (

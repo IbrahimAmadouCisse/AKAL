@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { Parcelle } from "@/data/parcelles";
+import type { Parcelle } from "@/types/parcelle";
 
 // Leaflet a besoin de `window`, qui n'existe pas au rendu serveur (SSR).
 // On charge donc la carte uniquement côté client avec ssr: false.

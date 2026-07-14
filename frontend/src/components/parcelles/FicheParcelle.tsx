@@ -3,7 +3,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import type { Parcelle } from "@/data/parcelles";
+import type { Parcelle } from "@/types/parcelle";
 import BadgeStatut from "./BadgeStatut";
 import ScoreBar from "./ScoreBar";
 import CarrouselPhotos from "./CarrouselPhotos";
@@ -42,13 +42,8 @@ const CarteFiche = dynamic(() => import("./CarteLeafletFiche"), {
 
 const formatMAD = new Intl.NumberFormat("fr-MA");
 
-const DESCRIPTIONS: string[] = [
-  "Ce terrain présente des caractéristiques agronomiques remarquables, avec un sol bien équilibré et une exposition favorable. La parcelle bénéficie d'une accessibilité routière satisfaisante, facilitant les opérations agricoles et la logistique.",
-  "L'état général du foncier est bon. Les documents cadastraux sont disponibles et consultables sur demande. Le vendeur est disponible pour organiser une visite de terrain afin d'apprécier les qualités de la parcelle in situ.",
-  "Une opportunité à saisir pour tout investisseur souhaitant développer une activité agricole durable au Maroc, dans une région à fort potentiel de valorisation.",
-];
-
-function agriScoreLegende(score: number): string {
+function agriScoreLegende(score: number | null): string {
+  if (score == null) return "AgriScore en cours de calcul pour cette parcelle.";
   if (score >= 75) return "Excellentes conditions agropédologiques. Sol fertile, bonne rétention hydrique.";
   if (score >= 50) return "Conditions correctes. Quelques aménagements peuvent améliorer le potentiel.";
   return "Potentiel limité. Convient à des cultures extensives ou à la pâture.";
@@ -106,8 +101,8 @@ export default function FicheParcelle({ parcelle: a }: { parcelle: Parcelle }) {
           {/* Titre + localisation + badges */}
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-              <BadgeStatut statut={a.statut} />
-              {a.eau && (
+              <BadgeStatut statut={a.parcelle.statutFoncier} />
+              {a.parcelle.accesEau !== "bour" && (
                 <span
                   style={{
                     display: "flex",
@@ -133,7 +128,10 @@ export default function FicheParcelle({ parcelle: a }: { parcelle: Parcelle }) {
 
             <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", color: "var(--color-tertiaire)" }}>
               <MapPin size={14} />
-              <span>{a.ville}, {a.region}</span>
+              <span>
+                {a.parcelle.adresseApproximative ?? a.parcelle.regionNom}
+                {a.parcelle.adresseApproximative && `, ${a.parcelle.regionNom}`}
+              </span>
             </div>
           </div>
 
@@ -153,9 +151,9 @@ export default function FicheParcelle({ parcelle: a }: { parcelle: Parcelle }) {
                 Indice agronomique / 100
               </span>
             </div>
-            <ScoreBar score={a.score} />
+            <ScoreBar score={a.scoreCourant?.scoreGlobal ?? null} />
             <p style={{ fontSize: "12px", color: "var(--color-secondaire)", margin: 0 }}>
-              {agriScoreLegende(a.score)}
+              {agriScoreLegende(a.scoreCourant?.scoreGlobal ?? null)}
             </p>
           </div>
 
@@ -175,13 +173,9 @@ export default function FicheParcelle({ parcelle: a }: { parcelle: Parcelle }) {
             >
               Description
             </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {DESCRIPTIONS.map((p, i) => (
-                <p key={i} style={{ fontSize: "14px", lineHeight: 1.75, color: "var(--color-secondaire)", margin: 0 }}>
-                  {p}
-                </p>
-              ))}
-            </div>
+            <p style={{ fontSize: "14px", lineHeight: 1.75, color: "var(--color-secondaire)", margin: 0, whiteSpace: "pre-line" }}>
+              {a.description}
+            </p>
           </section>
 
           <SimulateurROI prix={a.prix} />
@@ -216,7 +210,7 @@ export default function FicheParcelle({ parcelle: a }: { parcelle: Parcelle }) {
                 {formatMAD.format(a.prix)} MAD
               </div>
               <div style={{ fontSize: "13px", color: "var(--color-tertiaire)", marginTop: "4px" }}>
-                {a.prixM2} MAD/m² · {a.surface} ha
+                {a.prixM2} MAD/m² · {a.parcelle.surface} ha
               </div>
             </div>
 

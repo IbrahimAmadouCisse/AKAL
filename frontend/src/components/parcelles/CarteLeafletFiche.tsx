@@ -2,16 +2,18 @@
 
 import { MapContainer, TileLayer, Circle } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import type { Parcelle } from "@/data/parcelles";
+import type { Parcelle } from "@/types/parcelle";
 
 // Rayon affiché en mètres — masque la position exacte tout en situant la zone.
 const RAYON_M = 500;
 
 export default function CarteLeafletFiche({ parcelle }: { parcelle: Parcelle }) {
+  const coords: [number, number] = [parcelle.parcelle.latitude, parcelle.parcelle.longitude];
+
   return (
     <div style={{ position: "relative", height: "100%" }}>
       <MapContainer
-        center={parcelle.coords}
+        center={coords}
         zoom={13}
         scrollWheelZoom={false}
         style={{ height: "100%", width: "100%", borderRadius: "var(--radius-card)" }}
@@ -21,7 +23,7 @@ export default function CarteLeafletFiche({ parcelle }: { parcelle: Parcelle }) 
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <Circle
-          center={parcelle.coords}
+          center={coords}
           radius={RAYON_M}
           pathOptions={{
             color: "#2D6A4F",
