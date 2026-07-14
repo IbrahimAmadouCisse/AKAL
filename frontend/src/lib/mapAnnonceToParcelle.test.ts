@@ -1,6 +1,6 @@
 // Test de non-régression du contrat DTO → Parcelle.
 //
-// Fixture détail : JSON exact de AKAL_Contrat_Donnees_v1.1.md §4.4
+// Fixture détail : JSON exact de AKAL_Contrat_Donnees_v1.2.md §4.4
 // (branche origin/docs/contrat-donnees-charte-nommage). Fixture liste :
 // dérivée du même exemple selon la règle "sous-ensemble allégé" énoncée
 // juste après le JSON dans le contrat (id, slug, titre, prix_mad, statut,
@@ -30,7 +30,6 @@ const ANNONCE_DETAIL_DTO: AnnonceDetailDTO = {
   parcelle: {
     id: "a1c4e7f0-2b5d-4e8a-b3c6-d9f2a5b8c1e4",
     surface_ha: 5.0,
-    type_culture: "agrumes",
     statut_foncier: "melkia",
     acces_eau: "irriguee",
     region: { code: "casablanca-settat", nom: "Casablanca-Settat" },
@@ -105,12 +104,6 @@ describe("mapAnnonceDetailToParcelle (détail — fixture §4.4 verbatim)", () =
     });
   });
 
-  it("ne mappe jamais type_culture vers le type front (décision produit)", () => {
-    const resultat = mapAnnonceDetailToParcelle(ANNONCE_DETAIL_DTO) as Record<string, unknown>;
-    expect(resultat).not.toHaveProperty("typeCulture");
-    expect((resultat.parcelle as Record<string, unknown>)).not.toHaveProperty("typeCulture");
-  });
-
   it("scoreCourant est null quand aucun AgriScore n'a encore été calculé", () => {
     const dto: AnnonceDetailDTO = { ...ANNONCE_DETAIL_DTO, score_courant: null };
     expect(mapAnnonceDetailToParcelle(dto).scoreCourant).toBeNull();
@@ -141,7 +134,6 @@ const ANNONCE_LISTE_DTO: AnnonceListDTO = {
   parcelle: {
     id: "a1c4e7f0-2b5d-4e8a-b3c6-d9f2a5b8c1e4",
     surface_ha: 5.0,
-    type_culture: "agrumes",
     statut_foncier: "melkia",
     acces_eau: "irriguee",
     region: { code: "casablanca-settat", nom: "Casablanca-Settat" },

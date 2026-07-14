@@ -1,13 +1,13 @@
 // Mapping DTO API (forme brute renvoyée par Django REST Framework) → type
 // front `Parcelle` (types/parcelle.ts).
 //
-// DTOs alignés sur AKAL_Contrat_Donnees_v1.1.md §4.4. La liste et le détail
+// DTOs alignés sur AKAL_Contrat_Donnees_v1.2.md §4.4. La liste et le détail
 // renvoient des formes différentes ("sous-ensemble allégé" pour la liste,
 // cf. §4.4) — d'où deux DTO et deux mappers distincts.
 //
-// `type_culture` est capté en passthrough (le back en a besoin en interne,
-// enum fermée fiable) mais jamais mappé vers le type front : décision produit
-// de ne pas l'exposer en UI (relève de l'opinion/conseil, pas d'un fait stable).
+// `type_culture` a été retiré du contrat en v1.2 (changement cassant,
+// gouvernance §7) : jamais migré en enum fiable côté back, et le front avait
+// de toute façon déjà tranché de ne pas l'exposer en UI.
 
 import type {
   AccesEau,
@@ -35,7 +35,6 @@ type LocalisationDetailDTO = LocalisationListDTO & {
 type ParcelleListDTO = {
   id: string;
   surface_ha: number;
-  type_culture: string; // passthrough, jamais mappé — voir en-tête de fichier
   statut_foncier: StatutFoncier;
   acces_eau: AccesEau;
   topographie?: Topographie | null;

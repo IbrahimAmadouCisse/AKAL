@@ -8,7 +8,7 @@
 //   appellent l'API réelle via lib/api.ts et normalisent la réponse avec
 //   lib/mapAnnonceToParcelle.ts.
 //
-// Query params et pagination alignés sur AKAL_Contrat_Donnees_v1.1.md §4.2-4.3.
+// Query params et pagination alignés sur AKAL_Contrat_Donnees_v1.2.md §4.2-4.3.
 
 import { apiFetch, type Paginated } from "@/lib/api";
 import {

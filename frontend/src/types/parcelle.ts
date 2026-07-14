@@ -1,6 +1,6 @@
 // Type front normalisé pour une annonce/parcelle AKAL.
 //
-// Aligné sur AKAL_Contrat_Donnees_v1.1.md §3-4 (source de vérité — en cas de
+// Aligné sur AKAL_Contrat_Donnees_v1.2.md §3-4 (source de vérité — en cas de
 // divergence avec l'implémentation réelle, le schéma OpenAPI généré fait foi
 // et ce fichier doit être corrigé, jamais l'inverse silencieusement).
 //
@@ -25,7 +25,7 @@ export type StatutAnnonce = "en_attente" | "en_ligne" | "archivee" | "vendue";
 export type Topographie = string;
 
 // Attributs du terrain — reflète le sous-objet `parcelle` de l'API.
-// Pas de commune/province : le DTO v1.1 n'expose que la région (code + nom)
+// Pas de commune/province : le DTO v1.2 n'expose que la région (code + nom)
 // et une adresse approximative, jamais aplati (§3.1, §4.4).
 export type ParcelleTerrain = {
   surface: number; // surface_ha
