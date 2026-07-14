@@ -180,6 +180,7 @@ class AgriScore(models.Model):
     indice_confiance = models.FloatField(blank=True, null=True)
     version_ponderation = models.CharField(max_length=50)
     calculated_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'agriscore'

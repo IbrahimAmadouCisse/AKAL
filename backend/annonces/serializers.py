@@ -210,12 +210,13 @@ class AnnonceListSerializer(serializers.ModelSerializer):
         Retourne {score_global} du dernier AgriScore, ou null.
 
         Utilise le prefetch_related('parcelle__scores') pour éviter N+1.
-        Sélectionne le score le plus récent (historisation T8).
+        Sélectionne le score le plus récent par created_at (contrat §3.5) —
+        jamais calculated_at, qui est nullable et ne garantit pas l'ordre.
         """
         scores = obj.parcelle.scores.all()
         if scores:
             # Les scores sont déjà prefetchés, on trie en Python
-            latest = max(scores, key=lambda s: s.calculated_at if s.calculated_at else s.pk)
+            latest = max(scores, key=lambda s: s.created_at)
             return {'score_global': latest.score_global}
         return None
 
@@ -252,12 +253,13 @@ class AnnonceDetailSerializer(serializers.ModelSerializer):
         """
         Retourne l'AgriScore complet ou null.
 
-        Sélectionne le score le plus récent (historisation T8).
+        Sélectionne le score le plus récent par created_at (contrat §3.5) —
+        jamais calculated_at, qui est nullable et ne garantit pas l'ordre.
         Inclut score_global, sous_scores, indice_confiance, version_ponderation, calculated_at.
         """
         scores = obj.parcelle.scores.all()
         if scores:
-            latest = max(scores, key=lambda s: s.calculated_at if s.calculated_at else s.pk)
+            latest = max(scores, key=lambda s: s.created_at)
             return AgriScoreDetailSerializer(latest).data
         return None
 
