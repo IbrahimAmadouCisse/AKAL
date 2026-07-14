@@ -1,7 +1,10 @@
 # AKAL — Contrat de données
-**Version :** 1.1 — Juillet 2026 *(fusion du Contrat de données v1.0 et du draft Contrat API v1)*
+**Version :** 1.2 — Juillet 2026 *(retrait de `type_culture` — voir changelog)*
 **Statut :** À relire par Ibrahim (PR), puis soumis à validation académique (échéance explicite, silence vaut accord sous 5 jours ouvrés)
 **Parties :** Back-end Django/DRF (producteur — Ibrahim) · Front-end Next.js (consommateur — Mégane) · Pipeline d'enrichissement Prefect (producteur secondaire — Ibrahim)
+
+**Changelog v1.1 → v1.2 :**
+- Retrait de `type_culture` (§3.1, §4.2, §4.4, §6.1) — **changement cassant**, gouvernance §7. Justification : le champ n'a jamais été migré en enum fermée côté back (reste porté par `metadata.culture`, JSON libre non fiabilisé) et le front a tranché indépendamment de ne pas l'exposer en filtre ni en affichage catalogue — donnée jugée relever du conseil agronomique plutôt que d'un fait stable et vérifié à ce stade. Hors périmètre J1 tant qu'aucun des deux constats n'est levé.
 
 **Changelog v1.0 → v1.1 :**
 - Format d'erreurs : abandon du format custom au profit du format natif DRF (coût/bénéfice)
@@ -10,7 +13,7 @@
 - Query params de filtrage détaillés (`page_size` max 50, `ordering`)
 - Convention d'URL `/api/geo/regions/<code>/communes/` réservée pour MT4
 - Propriétaire anonymisé dans les DTO publics (RGPD / loi 09-08)
-- `type_culture` en enum fermée confirmée côté API
+- ~~`type_culture` en enum fermée confirmée côté API~~ — retiré en v1.2, jamais effectivement implémenté
 
 ---
 
@@ -48,7 +51,7 @@ Toute divergence constatée entre ce contrat et l'implémentation est remontée 
 
 ## 3. Schéma des entités
 
-> Ce schéma intègre les **correctifs pré-migrations** (étape 0.5 — Ibrahim, feature branch, pas de merge sans validation) : ajout de `type_culture`, correction de la contrainte CONVERSATION, AgriScore en OneToMany, isolation des géométries lourdes, ordre photos unifié, extraction du compteur `vues`.
+> Ce schéma intègre les **correctifs pré-migrations** (étape 0.5 — Ibrahim, feature branch, pas de merge sans validation) : correction de la contrainte CONVERSATION, AgriScore en OneToMany, isolation des géométries lourdes, ordre photos unifié, extraction du compteur `vues`.
 
 ### 3.1 Parcelle — le bien foncier lui-même
 La séparation Parcelle / Annonce est structurante : AgriScore et l'enrichissement géospatial décrivent **la terre**, pas l'annonce. C'est ce qui permet l'historique de prix par parcelle (futur jeu d'entraînement ML). **Cette séparation est préservée dans les DTO API** (sous-objet `parcelle`), jamais aplatie.
@@ -60,7 +63,6 @@ La séparation Parcelle / Annonce est structurante : AgriScore et l'enrichisseme
 | `region` / `province` / `commune` | FK référentiel geo | requis | Sélecteur en cascade |
 | `latitude` / `longitude` | decimal | requis | Point de référence léger |
 | `surface_ha` | decimal(10,2) | requis, > 0 | |
-| `type_culture` | varchar (**enum fermée**) | requis | `agrumes`, `cereales`, `olivier`, `maraichage`, `arboriculture`, `vigne`, … — jamais de texte libre (fiabilité des filtres + homogénéité AgriScore) |
 | `statut_foncier` | varchar (choices) | requis | `melkia`, `soulaliya`, `guich`, `habous`, `immatricule` |
 | `acces_eau` | varchar (choices) | requis | `irriguee`, `bour`, `mixte` |
 | `topographie` | varchar (choices) | optionnel | |
@@ -149,7 +151,6 @@ Authentification : **hors périmètre v1** (endpoints de lecture publics). Avena
 | `page` | int | `?page=2` | Numéro de page |
 | `page_size` | int | `?page_size=20` | Défaut **12** (grille catalogue), **max 50** borné côté back (anti-abus) |
 | `region` | slug | `?region=casablanca-settat` | Filtre par code région |
-| `type_culture` | enum | `?type_culture=agrumes` | Aligné sur le nom du champ en base — zéro renommage dans le serializer |
 | `statut_foncier` | enum | `?statut_foncier=melkia` | |
 | `acces_eau` | enum | `?acces_eau=irriguee` | |
 | `prix_min` / `prix_max` | int | `?prix_min=100000` | En MAD |
@@ -183,7 +184,6 @@ Justification : comportement par défaut de DRF (zéro code back), `next`/`previ
   "parcelle": {
     "id": "a1c4e7f0-2b5d-4e8a-b3c6-d9f2a5b8c1e4",
     "surface_ha": 5.00,
-    "type_culture": "agrumes",
     "statut_foncier": "melkia",
     "acces_eau": "irriguee",
     "region": { "code": "casablanca-settat", "nom": "Casablanca-Settat" },
@@ -267,8 +267,8 @@ Justification : zéro travail back (comportement natif DRF), documenté automati
 
 ## 6. Règles de qualité des données
 
-1. Une annonce ne passe `en_ligne` que si : parcelle géolocalisée, `type_culture` renseigné, ≥ 1 photo, prix > 0.
-2. Aucun champ métier libre là où une enum existe (`type_culture`, `statut_foncier`, `acces_eau`, `statut`).
+1. Une annonce ne passe `en_ligne` que si : parcelle géolocalisée, ≥ 1 photo, prix > 0.
+2. Aucun champ métier libre là où une enum existe (`statut_foncier`, `acces_eau`, `statut`).
 3. Les données scrapées (R-04) entrent avec un flag `source = "scraping"` et ne sont jamais mélangées silencieusement aux dépôts propriétaires.
 4. Suppression d'une annonce = archivage logique (`statut = archivee`), jamais de DELETE physique tant que des conversations y sont rattachées.
 
@@ -284,4 +284,4 @@ Justification : zéro travail back (comportement natif DRF), documenté automati
 1. Ibrahim relit et amende ce document (PR, commentaires ou édition directe).
 2. Ibrahim applique les correctifs schéma §3 sur feature branch (étape 0.5) + pose drf-spectacular.
 3. Validation croisée : comparaison Swagger généré ↔ ce document, correction des écarts.
-4. Merge dans `docs/AKAL_Contrat_Donnees_v1.1.md` + envoi à M. Baroud avec échéance.
+4. Merge dans `docs/AKAL_Contrat_Donnees_v1.2.md` + envoi à M. Baroud avec échéance.
