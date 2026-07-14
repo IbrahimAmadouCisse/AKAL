@@ -31,7 +31,7 @@ CULTURES = ['Blé', 'Olivier', 'Arganier', 'Maraîchage', 'Agrumes',
 
 ACCES_EAU = ['irriguee', 'bour', 'mixte']
 
-SORT_OPTIONS = ['prix', '-prix', 'date_publication', '-date_publication']
+SORT_OPTIONS = ['prix_mad', '-prix_mad', 'date_publication', '-date_publication']
 
 
 def _random_filters():
@@ -50,8 +50,7 @@ def _random_filters():
     if random.random() < 0.5:
         filters['statut_foncier'] = random.choice(STATUTS_FONCIERS)
 
-    if random.random() < 0.4:
-        filters['culture'] = random.choice(CULTURES)
+
 
     if random.random() < 0.3:
         filters['acces_eau'] = random.choice(ACCES_EAU)

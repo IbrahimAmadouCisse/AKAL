@@ -734,7 +734,7 @@ class Command(BaseCommand):
             # ── Créer la Parcelle ──
             parcelle = Parcelle.objects.create(
                 commune=commune_map[data['commune_key']],
-                surface=Decimal(data['surface']),
+                surface_ha=Decimal(data['surface']),
                 statut_foncier=data['statut_foncier'],
                 acces_eau=data['acces_eau'],
                 topographie=data['topographie'],
@@ -751,8 +751,8 @@ class Command(BaseCommand):
                 proprietaire=users[data['proprietaire_idx']],
                 titre=data['titre'],
                 description=data['description'],
-                prix=Decimal(data['prix']),
-                statut_annonce='en_ligne',
+                prix_mad=Decimal(data['prix']),
+                statut='en_ligne',
                 date_publication=timezone.now(),
             )
             annonce.save()  # Le save() génère le slug automatiquement
@@ -789,7 +789,7 @@ class Command(BaseCommand):
                     'accessibilite': round(random.uniform(30.0, 100.0), 1),
                 },
                 indice_confiance=round(random.uniform(0.5, 0.95), 2),
-                version_algo='v1.0-seed',
+                version_ponderation='v1.0-seed',
                 calculated_at=timezone.now(),
             )
 

@@ -198,10 +198,10 @@ AKAL/
 | `commune` | Integer | 1 (province) | — |
 | `parcelle` | UUID | 1 (commune) | Champs PostGIS (PointField, PolygonField) |
 | `annonce` | UUID | 2 (parcelle, user) | Slug unique auto-généré |
-| `agriscore` | UUID | 1 (parcelle) | **OneToOne** avec Parcelle |
+| `agriscore` | UUID | 1 (parcelle) | **ForeignKey** vers Parcelle (historisation, plusieurs scores possibles) |
 | `photo` | UUID | 1 (annonce) | Ordonnée par `ordre` |
 | `favori` | UUID | 2 (user, annonce) | **UNIQUE** (user, annonce) |
-| `conversation` | UUID | 3 (annonce, initiateur, destinataire) | **UNIQUE** (annonce, initiateur, destinataire) |
+| `conversation` | UUID | 2 (annonce, initiateur) | **UNIQUE** (annonce, initiateur) — le destinataire est déductible : `annonce.proprietaire` |
 | `message` | UUID | 2 (conversation, auteur) | Ordonné par `created_at` |
 
 ---
@@ -306,7 +306,7 @@ Représente le terrain physique avec ses caractéristiques agricoles et sa géol
 |---|---|---|---|
 | `id` | `UUIDField` | PK, auto | Identifiant unique |
 | `commune` | `FK → geo.Commune` | NOT NULL, CASCADE | Localisation administrative |
-| `surface` | `DecimalField(8,2)` | NOT NULL | Surface en **hectares** |
+| `surface_ha` | `DecimalField(8,2)` | NOT NULL | Surface en **hectares** |
 | `statut_foncier` | `CharField(20)` | NOT NULL | Voir [enum StatutFoncier](#statut-foncier) |
 | `acces_eau` | `CharField(20)` | NOT NULL | Voir [enum AccesEau](#accès-eau) |
 | `topographie` | `CharField(20)` | NOT NULL | Voir [enum Topographie](#topographie) |
@@ -345,8 +345,8 @@ Représente la mise en vente d'une parcelle par un propriétaire.
 | `slug` | `SlugField(255)` | **UNIQUE**, auto | URL-friendly (ex: `terrain-irrigue-fes-a1b2c3d4`) |
 | `titre` | `CharField(120)` | NOT NULL | Titre de l'annonce |
 | `description` | `TextField` | NOT NULL | Description détaillée |
-| `prix` | `DecimalField(12,2)` | NOT NULL | Prix en **MAD** (dirhams) |
-| `statut_annonce` | `CharField(20)` | DEFAULT `brouillon` | Voir [enum StatutAnnonce](#statut-annonce) |
+| `prix_mad` | `DecimalField(12,2)` | NOT NULL | Prix en **MAD** (dirhams) |
+| `statut` | `CharField(20)` | DEFAULT `brouillon` | Voir [enum StatutAnnonce](#statut-annonce) |
 | `loc_confidentielle` | `BooleanField` | DEFAULT `False` | Masquer la localisation exacte |
 | `date_publication` | `DateTimeField` | NULLABLE | Date de mise en ligne |
 | `created_at` | `DateTimeField` | Auto | Date de création |
@@ -377,16 +377,16 @@ Le slug est composé du titre slugifié + les 8 premiers caractères de l'UUID, 
 #### Modèle `AgriScore`
 **Table** : `agriscore`
 
-Score de qualité agricole calculé automatiquement pour chaque parcelle. Relation **OneToOne** : une parcelle a au maximum un AgriScore.
+Score de qualité agricole calculé automatiquement pour chaque parcelle. Relation **ForeignKey** : une parcelle peut avoir plusieurs AgriScores (historisation), le plus récent est le score courant.
 
 | Champ | Type | Contraintes | Description |
 |---|---|---|---|
 | `id` | `UUIDField` | PK, auto | Identifiant unique |
-| `parcelle` | `OneToOneField → Parcelle` | NOT NULL, CASCADE | Parcelle évaluée |
+| `parcelle` | `ForeignKey → Parcelle` | NOT NULL, CASCADE | Parcelle évaluée |
 | `score_global` | `FloatField` | NULLABLE | Score global (0–100) |
 | `sous_scores` | `JSONField` | NULLABLE | Détail par critère (ex: `{"sol": 85, "eau": 72}`) |
 | `indice_confiance` | `FloatField` | NULLABLE | Fiabilité du score (0–1) |
-| `version_algo` | `CharField(50)` | NOT NULL | Version de l'algorithme de scoring |
+| `version_ponderation` | `CharField(50)` | NOT NULL | Version de la pondération de scoring |
 | `calculated_at` | `DateTimeField` | NULLABLE | Date du dernier calcul |
 
 #### Modèle `Photo`
@@ -427,18 +427,17 @@ Permet à un utilisateur de sauvegarder une annonce. La contrainte d'unicité em
 #### Modèle `Conversation`
 **Table** : `conversation`
 
-Fil de discussion entre deux utilisateurs à propos d'une annonce spécifique.
+Fil de discussion entre un utilisateur (initiateur) et le vendeur d'une annonce. Le destinataire est déductible : `conversation.annonce.proprietaire`.
 
 | Champ | Type | Contraintes | Description |
 |---|---|---|---|
 | `id` | `UUIDField` | PK, auto | Identifiant unique |
 | `annonce` | `FK → Annonce` | NOT NULL, CASCADE | Annonce concernée |
 | `initiateur` | `FK → User` | NOT NULL, CASCADE | Qui a démarré la conversation |
-| `destinataire` | `FK → User` | NOT NULL, CASCADE | Le propriétaire contacté |
 | `created_at` | `DateTimeField` | Auto | Date de création |
 | `updated_at` | `DateTimeField` | Auto | Dernière activité |
 
-> **Contrainte** : `UNIQUE (annonce, initiateur, destinataire)` — Une seule conversation par combinaison annonce + initiateur + destinataire.
+> **Contrainte** : `UNIQUE (annonce, initiateur)` — Une seule conversation par combinaison annonce + initiateur.
 
 #### Modèle `Message`
 **Table** : `message`
@@ -467,12 +466,12 @@ Messages individuels dans une conversation. Ordonnés chronologiquement.
 | `Commune` | `Parcelle` | `parcelles` | CASCADE |
 | `Parcelle` | `Annonce` | `annonces` | CASCADE |
 | `User` | `Annonce` | `annonces` | CASCADE |
+| `Parcelle` | `AgriScore` | `scores` | CASCADE |
 | `Annonce` | `Photo` | `photos` | CASCADE |
 | `User` | `Favori` | `favoris` | CASCADE |
 | `Annonce` | `Favori` | `favoris` | CASCADE |
 | `Annonce` | `Conversation` | `conversations` | CASCADE |
 | `User` | `Conversation` (initiateur) | `conversations_initiees` | CASCADE |
-| `User` | `Conversation` (destinataire) | `conversations_recues` | CASCADE |
 | `Conversation` | `Message` | `messages` | CASCADE |
 | `User` | `Message` | `messages_envoyes` | CASCADE |
 
@@ -480,7 +479,9 @@ Messages individuels dans une conversation. Ordonnés chronologiquement.
 
 | Parent | Enfant | related_name |
 |---|---|---|
-| `Parcelle` | `AgriScore` | `agriscore` |
+| `Parcelle` | `DonneesGeo` | `donnees_geo` |
+
+> **Note** : `AgriScore` est désormais une **ForeignKey** (historisation, `related_name='scores'`), pas un OneToOne.
 
 ### Exemples d'accès via le ORM Django
 
@@ -488,8 +489,8 @@ Messages individuels dans une conversation. Ordonnés chronologiquement.
 # Toutes les annonces d'un propriétaire
 user.annonces.all()
 
-# L'AgriScore d'une parcelle
-parcelle.agriscore  # accès direct (OneToOne)
+# Le dernier AgriScore d'une parcelle (historisé)
+parcelle.scores.order_by('-created_at').first()
 
 # Les photos d'une annonce
 annonce.photos.all()
@@ -499,6 +500,9 @@ user.favoris.select_related('annonce').all()
 
 # Les conversations initiées par un utilisateur
 user.conversations_initiees.all()
+
+# Le destinataire d'une conversation (déductible)
+conversation.annonce.proprietaire
 
 # Les messages d'une conversation
 conversation.messages.order_by('created_at')
@@ -780,7 +784,7 @@ Manager custom attaché au modèle `Annonce` (`objects = AnnonceManager()`). Exp
 
 | Méthode | Retour | Description |
 |---|---|---|
-| `en_ligne()` | `QuerySet` | Filtre `statut_annonce='en_ligne'` |
+| `en_ligne()` | `QuerySet` | Filtre `statut='en_ligne'` |
 | `with_relations()` | `QuerySet` | Applique `select_related` + `prefetch_related` (voir ci-dessous) |
 | `search(query)` | `QuerySet` | `Q(titre__icontains=q) \| Q(description__icontains=q)` |
 
@@ -805,12 +809,13 @@ Annonce.objects.en_ligne().search("Fès").with_relations()
 
 ---
 
-### 10.2 — AnnonceFilter (django-filter)
+### 10.2 — AnnonceFilter (django-filter) — LEGACY (vues HTML)
 
 > **Fichier** : `backend/annonces/filters.py`
 > **Dépendance** : `django-filter>=25.1` (ajouté dans `requirements.txt` et `INSTALLED_APPS`)
+> **⚠️ LEGACY** : Ce FilterSet est utilisé uniquement par les vues HTML de rétrocompatibilité. Le FilterSet de l'API REST est `AnnonceAPIFilter` (dans `api_views.py`).
 
-FilterSet déclaratif qui centralise toute la logique de filtrage à facettes. Chaque paramètre GET est validé et converti automatiquement avant d'atteindre l'ORM.
+FilterSet déclaratif qui centralise toute la logique de filtrage à facettes pour les vues template. Chaque paramètre GET est validé et converti automatiquement avant d'atteindre l'ORM.
 
 #### Paramètres GET supportés
 
@@ -819,20 +824,18 @@ FilterSet déclaratif qui centralise toute la logique de filtrage à facettes. C
 | `q` | Recherche textuelle (méthode custom, `Q objects`) | `titre`, `description` | `?q=terrain irrigué` |
 | `region` | `BaseInFilter` (multi-sélection) | `parcelle__commune__province__region_id` | `?region=1&region=3` |
 | `statut_foncier` | `BaseInFilter` (multi-sélection) | `parcelle__statut_foncier` | `?statut_foncier=melkia&statut_foncier=guich` |
-| `culture` | `CharFilter` (méthode custom, JSONField) | `parcelle__metadata__culture__icontains` | `?culture=Blé` |
 | `acces_eau` | `ChoiceFilter` (exact) | `parcelle__acces_eau` | `?acces_eau=irriguee` |
-| `prix_min` | `NumberFilter` (`gte`) | `prix` | `?prix_min=100000` |
-| `prix_max` | `NumberFilter` (`lte`) | `prix` | `?prix_max=500000` |
-| `surface_min` | `NumberFilter` (`gte`) | `parcelle__surface` | `?surface_min=2` |
-| `surface_max` | `NumberFilter` (`lte`) | `parcelle__surface` | `?surface_max=50` |
-| `sort` | `OrderingFilter` | — | `?sort=prix`, `?sort=-prix`, `?sort=date_publication`, `?sort=-date_publication` |
+| `prix_min` | `NumberFilter` (`gte`) | `prix_mad` | `?prix_min=100000` |
+| `prix_max` | `NumberFilter` (`lte`) | `prix_mad` | `?prix_max=500000` |
+| `surface_min` | `NumberFilter` (`gte`) | `parcelle__surface_ha` | `?surface_min=2` |
+| `surface_max` | `NumberFilter` (`lte`) | `parcelle__surface_ha` | `?surface_max=50` |
+| `sort` | `OrderingFilter` | — | `?sort=prix_mad`, `?sort=-prix_mad`, `?sort=date_publication`, `?sort=-date_publication` |
 
 #### Méthodes custom
 
 | Méthode | Paramètre | Logique |
 |---|---|---|
 | `filter_search` | `q` | `Q(titre__icontains=value) \| Q(description__icontains=value)` |
-| `filter_culture` | `culture` | `parcelle__metadata__culture__icontains=value` (PostgreSQL JSONField) |
 
 ---
 
@@ -909,20 +912,24 @@ Liste allégée des annonces (statut `en_ligne`), paginée et filtrable.
           "slug": "terrain-irrigue-fes-1234abcd",
           "titre": "Terrain irrigué Fès",
           "prix_mad": "450000.00",
-          "surface_ha": "12.50",
-          "region": "Fès-Meknès",
-          "statut_foncier": "melkia",
-          "acces_eau": "irriguee",
-          "type_culture": ["Blé"],
-          "photo_principale": "http://localhost:8000/media/photos/photo_0.jpg",
+          "statut": "en_ligne",
           "score_courant": {"score_global": 82.5},
-          "date_publication": "2026-07-10T14:30:00Z"
+          "photo_principale": "http://localhost:8000/media/photos/photo_0.jpg",
+          "created_at": "2026-07-10T14:30:00Z",
+          "parcelle": {
+            "id": "uuid",
+            "surface_ha": "12.50",
+            "statut_foncier": "melkia",
+            "acces_eau": "irriguee",
+            "region": {"code": "fes-meknes", "nom": "Fès-Meknès"},
+            "localisation": {"latitude": 34.05, "longitude": -5.0}
+          }
         }
       ]
     }
     ```
-*   **Filtres supportés** (`?param=value`) : `region`, `type_culture`, `statut_foncier`, `acces_eau`, `prix_min`, `prix_max`, `surface_min`, `surface_max`.
-*   **Tri supporté** (`?ordering=`) : `date_publication`, `prix`, `parcelle__surface`. (Préfixer par `-` pour décroissant).
+*   **Filtres supportés** (`?param=value`) : `region` (code slug, ex: `?region=fes-meknes`), `statut_foncier`, `acces_eau`, `prix_min`, `prix_max`, `surface_min`, `surface_max`.
+*   **Tri supporté** (`?ordering=`) : `date_publication`, `prix_mad`, `surface_ha`. (Préfixer par `-` pour décroissant).
 
 #### `GET /api/annonces/<slug>/` (Détail Annonce)
 
@@ -936,15 +943,27 @@ Fiche complète d'une annonce spécifique.
       "titre": "Terrain irrigué Fès",
       "description": "...",
       "prix_mad": "450000.00",
-      ...
+      "statut": "en_ligne",
+      "loc_confidentielle": false,
+      "date_publication": "2026-07-10T14:30:00Z",
+      "created_at": "2026-07-10T14:30:00Z",
+      "updated_at": "2026-07-10T14:30:00Z",
       "parcelle": {
-        "surface": "12.50",
+        "id": "uuid",
+        "surface_ha": "12.50",
         "statut_foncier": "melkia",
-        "latitude": 34.05,
-        "longitude": -5.0,
-        "region": "Fès-Meknès",
+        "acces_eau": "irriguee",
+        "topographie": "plat",
+        "acces_routier": "goudron",
+        "metadata": {"culture": ["Blé", "Olivier"]},
+        "region": {"code": "fes-meknes", "nom": "Fès-Meknès"},
         "province": "Fès",
-        "commune": "Fès Médina"
+        "commune": "Fès Médina",
+        "localisation": {
+          "latitude": 34.05,
+          "longitude": -5.0,
+          "adresse_approximative": "Fès Médina, Maroc"
+        }
       },
       "photos": [
         {"id": "uuid", "image": "http://.../photo_0.jpg", "ordre": 0},
@@ -953,12 +972,14 @@ Fiche complète d'une annonce spécifique.
       "score_courant": {
         "score_global": 82.5,
         "sous_scores": {"sol": 85, "eau": 90},
-        "indice_confiance": 0.85
+        "indice_confiance": 0.85,
+        "version_ponderation": "v1.0",
+        "calculated_at": "2026-07-10T14:30:00Z"
       },
       "proprietaire": {
-        "nom": "El Fassi",
-        "prenom": "Ahmed"
-      }
+        "id": "a1b2c3d4-e5f6-..."
+      },
+      "photo_principale": "http://.../photo_0.jpg"
     }
     ```
 
@@ -969,8 +990,8 @@ Liste des régions du Maroc (non paginé).
 *   **Réponse type** :
     ```json
     [
-      {"id": 1, "code": "FM", "nom": "Fès-Meknès"},
-      {"id": 2, "code": "MS", "nom": "Marrakech-Safi"}
+      {"id": 1, "code": "fes-meknes", "nom": "Fès-Meknès"},
+      {"id": 2, "code": "marrakech-safi", "nom": "Marrakech-Safi"}
     ]
     ```
 
@@ -1116,6 +1137,7 @@ Le backend AKAL est conteneurisé via Docker et configuré pour un déploiement 
 | 2026-06-30 | — | **Config DevOps (Prod)** : Ajout du `Dockerfile` (PostGIS deps, Gunicorn, non-root), `.dockerignore` et `render.yaml`. Configuration de `WhiteNoise` pour les statiques. Ajout d'une condition dans `base.py` pour basculer dynamiquement le `GDAL_LIBRARY_PATH` entre Windows et Linux/Docker. |
 | 2026-07-03 | — | **Cache Redis & Test de charge** : Ajout `docker-compose.yml` (Redis 7 Alpine), configuration `CACHES` django-redis dans `base.py`, cache manuel sur `CatalogueView` (60s, clé MD5) et `@cache_page(300)` sur `AnnonceDetailView`. Création `seed_test_data.py` (100K annonces, `bulk_create` x5000, Points PostGIS Maroc). Création `locustfile.py` (2 profils : CatalogueBrowser + DetailViewer avec filtres aléatoires). |
 | 2026-07-13 | — | **API v2 (Intégration Frontend)** : Implémentation du contrat d'API (§4 Amélioration). I-1 : Corrections du schéma (DonneesGeo, suppression vues/contour/is_principale, ajout StatistiqueAnnonce). I-2 : Installation et config DRF, drf-spectacular (Swagger) et django-cors-headers. I-3 : Création des serializers et vues API REST (`/api/annonces/`, `/api/geo/regions/`) conformes. I-4 : Commande `seed_demo` pour générer ~15 annonces de démo complètes. |
+| 2026-07-14 | — | **Correctifs contrat v1.1 → v1.2 (T1–T11)** : T1 — RGPD `ProprietaireSerializer` expose UUID uniquement. T2 — Sous-objet `parcelle` dans la liste (interdiction d'aplatir). T3 — Renommages modèle (`prix`→`prix_mad`, `statut_annonce`→`statut`, `surface`→`surface_ha`). T4 — `OrderingFilter` django-filter avec mapping contrat (`prix_mad`, `surface_ha`, `date_publication`). T5 — Filtre `region` par code slug + sérialisation `{code, nom}`. T6 — Sous-objet `localisation` (avec `adresse_approximative` en détail). T7 — Retrait FK `destinataire` sur `Conversation` (déductible via `annonce.proprietaire`). T8 — AgriScore historisé (OneToOne→FK, `version_algo`→`version_ponderation`). T9 — Retrait `type_culture` (décision PO). T10 — Commentaire LEGACY sur `AnnonceFilter`. T11 — Codes région en slug kebab-case dans `seed_demo`. |
 ---
 
 *Documentation générée et maintenue au fur et à mesure de l'avancement du projet AKAL.*

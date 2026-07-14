@@ -36,12 +36,12 @@ from geo.models import Commune, Province, Region
 # ══════════════════════════════════════════════════════════════
 
 GEO_REGIONS = [
-    {'id': 1, 'nom': 'Fès-Meknès', 'code': 'FM'},
-    {'id': 2, 'nom': 'Marrakech-Safi', 'code': 'MS'},
-    {'id': 3, 'nom': 'Souss-Massa', 'code': 'SM'},
-    {'id': 4, 'nom': 'Rabat-Salé-Kénitra', 'code': 'RSK'},
-    {'id': 5, 'nom': 'Béni Mellal-Khénifra', 'code': 'BMK'},
-    {'id': 6, 'nom': 'Drâa-Tafilalet', 'code': 'DT'},
+    {'id': 1, 'nom': 'Fès-Meknès', 'code': 'fes-meknes'},
+    {'id': 2, 'nom': 'Marrakech-Safi', 'code': 'marrakech-safi'},
+    {'id': 3, 'nom': 'Souss-Massa', 'code': 'souss-massa'},
+    {'id': 4, 'nom': 'Rabat-Salé-Kénitra', 'code': 'rabat-sale-kenitra'},
+    {'id': 5, 'nom': 'Béni Mellal-Khénifra', 'code': 'beni-mellal-khenifra'},
+    {'id': 6, 'nom': 'Drâa-Tafilalet', 'code': 'draa-tafilalet'},
 ]
 
 GEO_PROVINCES = [
@@ -309,14 +309,14 @@ class Command(BaseCommand):
     def _seed_geo(self):
         self.stdout.write('Donnees geographiques...')
         for r in GEO_REGIONS:
-            Region.objects.get_or_create(id=r['id'], defaults={'nom': r['nom'], 'code': r['code']})
+            Region.objects.update_or_create(id=r['id'], defaults={'nom': r['nom'], 'code': r['code']})
         for p in GEO_PROVINCES:
-            Province.objects.get_or_create(
+            Province.objects.update_or_create(
                 id=p['id'], defaults={'region_id': p['region_id'], 'nom': p['nom'], 'code': p['code']}
             )
         communes = {}
         for c in GEO_COMMUNES:
-            obj, _ = Commune.objects.get_or_create(
+            obj, _ = Commune.objects.update_or_create(
                 id=c['id'], defaults={'province_id': c['province_id'], 'nom': c['nom']}
             )
             communes[c['id']] = obj
@@ -357,7 +357,7 @@ class Command(BaseCommand):
             # Parcelle
             parcelle = Parcelle.objects.create(
                 commune=communes[data['commune_id']],
-                surface=Decimal(str(data['surface'])),
+                surface_ha=Decimal(str(data['surface'])),
                 statut_foncier=data['statut_foncier'],
                 acces_eau=data['acces_eau'],
                 topographie=data['topographie'],
@@ -378,8 +378,8 @@ class Command(BaseCommand):
                 slug=slug,
                 titre=data['titre'],
                 description=data['description'],
-                prix=Decimal(str(data['prix'])),
-                statut_annonce='en_ligne',
+                prix_mad=Decimal(str(data['prix'])),
+                statut='en_ligne',
                 date_publication=now,
             )
 
@@ -390,7 +390,7 @@ class Command(BaseCommand):
                     score_global=data['score'],
                     sous_scores=data.get('sous_scores', {}),
                     indice_confiance=round(random.uniform(0.7, 0.98), 2),
-                    version_algo='v1.0',
+                    version_ponderation='v1.0',
                     calculated_at=now,
                 )
 

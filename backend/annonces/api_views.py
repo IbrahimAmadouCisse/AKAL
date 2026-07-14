@@ -1,13 +1,13 @@
 """
 Vues API REST (DRF) de l'app annonces.
 
-Endpoints conformes au contrat frontend/backend (§4) :
+Endpoints conformes au contrat frontend/backend (§4, contrat v1.2) :
     - GET /api/annonces/        → Liste paginée avec filtres
     - GET /api/annonces/<slug>/ → Détail complet d'une annonce
 """
 
 from django_filters import rest_framework as dj_filters
-from rest_framework import generics, filters
+from rest_framework import generics
 
 from .models import Annonce, Parcelle
 from .serializers import AnnonceListSerializer, AnnonceDetailSerializer
@@ -22,23 +22,20 @@ class AnnonceAPIFilter(dj_filters.FilterSet):
     FilterSet pour l'API REST /api/annonces/.
 
     Paramètres query string :
-        ?region=           → ID de la région
-        ?type_culture=     → Culture (recherche dans metadata JSONField)
+        ?region=           → Code slug de la région (ex: casablanca-settat)
         ?statut_foncier=   → Statut foncier exact
         ?acces_eau=        → Accès eau exact
         ?prix_min=         → Prix minimum (>=)
         ?prix_max=         → Prix maximum (<=)
         ?surface_min=      → Surface minimum en ha (>=)
         ?surface_max=      → Surface maximum en ha (<=)
+        ?ordering=         → Tri : date_publication, prix_mad, surface_ha (préfixe - pour desc)
     """
 
-    region = dj_filters.NumberFilter(
-        field_name='parcelle__commune__province__region_id',
-        label='Région (ID)',
-    )
-    type_culture = dj_filters.CharFilter(
-        method='filter_type_culture',
-        label='Type de culture',
+    region = dj_filters.CharFilter(
+        field_name='parcelle__commune__province__region__code',
+        lookup_expr='exact',
+        label='Région (code slug)',
     )
     statut_foncier = dj_filters.ChoiceFilter(
         field_name='parcelle__statut_foncier',
@@ -51,37 +48,38 @@ class AnnonceAPIFilter(dj_filters.FilterSet):
         label='Accès eau',
     )
     prix_min = dj_filters.NumberFilter(
-        field_name='prix',
+        field_name='prix_mad',
         lookup_expr='gte',
         label='Prix minimum (MAD)',
     )
     prix_max = dj_filters.NumberFilter(
-        field_name='prix',
+        field_name='prix_mad',
         lookup_expr='lte',
         label='Prix maximum (MAD)',
     )
     surface_min = dj_filters.NumberFilter(
-        field_name='parcelle__surface',
+        field_name='parcelle__surface_ha',
         lookup_expr='gte',
         label='Surface minimum (ha)',
     )
     surface_max = dj_filters.NumberFilter(
-        field_name='parcelle__surface',
+        field_name='parcelle__surface_ha',
         lookup_expr='lte',
         label='Surface maximum (ha)',
+    )
+
+    # ── T4 : Ordering conforme au contrat §4.2 ──
+    ordering = dj_filters.OrderingFilter(
+        fields=(
+            ('date_publication', 'date_publication'),
+            ('prix_mad', 'prix_mad'),
+            ('parcelle__surface_ha', 'surface_ha'),
+        ),
     )
 
     class Meta:
         model = Annonce
         fields = []
-
-    def filter_type_culture(self, queryset, name, value):
-        """Filtre sur le type de culture dans le JSONField metadata."""
-        if not value:
-            return queryset
-        return queryset.filter(
-            parcelle__metadata__culture__icontains=value
-        )
 
 
 # ──────────────────────────────────────────────
@@ -112,13 +110,12 @@ class AnnonceListAPIView(generics.ListAPIView):
     Réponse : { count, next, previous, results: [...] }
 
     Filtres query params :
-        region, type_culture, statut_foncier, acces_eau,
+        region, statut_foncier, acces_eau,
         prix_min, prix_max, surface_min, surface_max
 
-    Ordering (tri) :
-        ?ordering=date_publication (ou -date_publication)
-        ?ordering=prix (ou -prix, mapped depuis prix_mad)
-        ?ordering=parcelle__surface (ou -, mapped depuis surface_ha)
+    Ordering (tri) — paramètre ?ordering= :
+        date_publication, prix_mad, surface_ha
+        (préfixer par - pour décroissant)
     """
 
     serializer_class = AnnonceListSerializer
@@ -126,9 +123,7 @@ class AnnonceListAPIView(generics.ListAPIView):
     filterset_class = AnnonceAPIFilter
     filter_backends = [
         dj_filters.DjangoFilterBackend,
-        filters.OrderingFilter,
     ]
-    ordering_fields = ['date_publication', 'prix', 'parcelle__surface']
     ordering = ['-date_publication']  # Tri par défaut
 
     def get_queryset(self):
@@ -137,7 +132,7 @@ class AnnonceListAPIView(generics.ListAPIView):
             Annonce.objects
             .en_ligne()
             .with_relations()
-            .select_related('parcelle__agriscore')
+            .prefetch_related('parcelle__scores')
         )
 
 
@@ -157,5 +152,5 @@ class AnnonceDetailAPIView(generics.RetrieveAPIView):
             Annonce.objects
             .en_ligne()
             .with_relations()
-            .select_related('parcelle__agriscore')
+            .prefetch_related('parcelle__scores')
         )

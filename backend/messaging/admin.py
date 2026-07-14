@@ -11,7 +11,7 @@ class FavoriAdmin(admin.ModelAdmin):
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ('annonce', 'initiateur', 'destinataire', 'created_at', 'updated_at')
+    list_display = ('annonce', 'initiateur', 'created_at', 'updated_at')
 
 
 @admin.register(Message)

@@ -40,7 +40,11 @@ class Favori(models.Model):
 # ──────────────────────────────────────────────
 
 class Conversation(models.Model):
-    """Fil de discussion entre deux utilisateurs à propos d'une annonce."""
+    """
+    Fil de discussion entre un utilisateur et le vendeur d'une annonce.
+
+    Le destinataire est déductible : conversation.annonce.proprietaire.
+    """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     annonce = models.ForeignKey(
@@ -49,10 +53,6 @@ class Conversation(models.Model):
     initiateur = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name='conversations_initiees'
-    )
-    destinataire = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-        related_name='conversations_recues'
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -63,13 +63,13 @@ class Conversation(models.Model):
         verbose_name_plural = 'Conversations'
         constraints = [
             models.UniqueConstraint(
-                fields=['annonce', 'initiateur', 'destinataire'],
-                name='unique_conversation'
+                fields=['annonce', 'initiateur'],
+                name='uniq_conversation_annonce_initiateur'
             )
         ]
 
     def __str__(self):
-        return f"Conversation {self.initiateur} → {self.destinataire} ({self.annonce})"
+        return f"Conversation {self.initiateur} → {self.annonce} ({self.annonce})"
 
 
 # ──────────────────────────────────────────────

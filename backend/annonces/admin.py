@@ -6,23 +6,23 @@ from .models import Parcelle, Annonce, AgriScore, Photo, DonneesGeo, Statistique
 
 @admin.register(Parcelle)
 class ParcelleAdmin(admin.ModelAdmin):
-    list_display = ('id', 'commune', 'surface', 'statut_foncier', 'acces_eau', 'created_at')
+    list_display = ('id', 'commune', 'surface_ha', 'statut_foncier', 'acces_eau', 'created_at')
     list_filter = ('statut_foncier', 'acces_eau', 'topographie', 'acces_routier')
     search_fields = ('commune__nom',)
 
 
 @admin.register(Annonce)
 class AnnonceAdmin(admin.ModelAdmin):
-    list_display = ('titre', 'proprietaire', 'prix', 'statut_annonce', 'created_at')
-    list_filter = ('statut_annonce',)
+    list_display = ('titre', 'proprietaire', 'prix_mad', 'statut', 'created_at')
+    list_filter = ('statut',)
     search_fields = ('titre', 'slug')
     prepopulated_fields = {'slug': ('titre',)}
 
 
 @admin.register(AgriScore)
 class AgriScoreAdmin(admin.ModelAdmin):
-    list_display = ('parcelle', 'score_global', 'indice_confiance', 'version_algo', 'calculated_at')
-    list_filter = ('version_algo',)
+    list_display = ('parcelle', 'score_global', 'indice_confiance', 'version_ponderation', 'calculated_at')
+    list_filter = ('version_ponderation',)
 
 
 @admin.register(Photo)

@@ -16,7 +16,7 @@ class AnnonceQuerySet(models.QuerySet):
 
     def en_ligne(self):
         """Filtre uniquement les annonces publiées (statut 'en_ligne')."""
-        return self.filter(statut_annonce='en_ligne')
+        return self.filter(statut='en_ligne')
 
     def with_relations(self):
         """

@@ -178,8 +178,8 @@ class AnnonceDetailView(DetailView):
         """
         # On ne veut pouvoir accéder qu'aux annonces actives (sauf si on est admin/propriétaire,
         # mais la consigne standard est de protéger l'accès). Restons sur en_ligne().
-        return Annonce.objects.en_ligne().with_relations().select_related(
-            'parcelle__agriscore'
+        return Annonce.objects.en_ligne().with_relations().prefetch_related(
+            'parcelle__scores'
         )
 
     def get_context_data(self, **kwargs):
@@ -192,8 +192,8 @@ class AnnonceDetailView(DetailView):
         # ── Algorithme de recommandation : Parcelles similaires ──
         
         # 1. Fourchette de prix (+/- 20%)
-        prix_min = annonce.prix * Decimal('0.8')
-        prix_max = annonce.prix * Decimal('1.2')
+        prix_min = annonce.prix_mad * Decimal('0.8')
+        prix_max = annonce.prix_mad * Decimal('1.2')
 
         # 2. Construction de la requête Q(Même région OU Même type_culture)
         region_id = annonce.parcelle.commune.province.region_id
@@ -212,7 +212,7 @@ class AnnonceDetailView(DetailView):
         parcelles_similaires = (
             Annonce.objects.en_ligne()
             .exclude(id=annonce.id)                 # Exclure l'annonce actuelle
-            .filter(prix__gte=prix_min, prix__lte=prix_max) # Même gamme de prix
+            .filter(prix_mad__gte=prix_min, prix_mad__lte=prix_max) # Même gamme de prix
             .filter(q_conditions)                   # Match région OU culture
             .with_relations()                       # Optimisation N+1 !
             .distinct()[:3]                         # Limite à 3 résultats uniques

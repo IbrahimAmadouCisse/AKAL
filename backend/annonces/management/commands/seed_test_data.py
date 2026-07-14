@@ -263,7 +263,7 @@ class Command(BaseCommand):
             parcelle = Parcelle(
                 id=parcelle_id,
                 commune=commune,
-                surface=Decimal(str(round(random.uniform(0.5, 500.0), 2))),
+                surface_ha=Decimal(str(round(random.uniform(0.5, 500.0), 2))),
                 statut_foncier=random.choice(STATUTS_FONCIERS),
                 acces_eau=random.choice(ACCES_EAU),
                 topographie=random.choice(TOPOGRAPHIES),
@@ -321,8 +321,8 @@ class Command(BaseCommand):
                 slug=slug,
                 titre=titre,
                 description=fake.paragraph(nb_sentences=5),
-                prix=Decimal(str(random.randint(50_000, 5_000_000))),
-                statut_annonce='en_ligne',
+                prix_mad=Decimal(str(random.randint(50_000, 5_000_000))),
+                statut='en_ligne',
                 loc_confidentielle=random.choice([True, False]),
                 date_publication=fake.date_time_between(
                     start_date='-6M', end_date='now', tzinfo=now.tzinfo,

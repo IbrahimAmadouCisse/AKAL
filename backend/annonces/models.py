@@ -42,7 +42,7 @@ class Parcelle(models.Model):
     commune = models.ForeignKey(
         'geo.Commune', on_delete=models.CASCADE, related_name='parcelles'
     )
-    surface = models.DecimalField(
+    surface_ha = models.DecimalField(
         max_digits=8, decimal_places=2, help_text='Surface en hectares'
     )
     statut_foncier = models.CharField(max_length=20, choices=StatutFoncier.choices)
@@ -61,7 +61,7 @@ class Parcelle(models.Model):
         verbose_name_plural = 'Parcelles'
 
     def __str__(self):
-        return f"Parcelle {self.id} — {self.surface} ha"
+        return f"Parcelle {self.id} — {self.surface_ha} ha"
 
 
 # ──────────────────────────────────────────────
@@ -112,10 +112,10 @@ class Annonce(models.Model):
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     titre = models.CharField(max_length=120)
     description = models.TextField()
-    prix = models.DecimalField(
+    prix_mad = models.DecimalField(
         max_digits=12, decimal_places=2, help_text='Prix en MAD'
     )
-    statut_annonce = models.CharField(
+    statut = models.CharField(
         max_length=20, choices=StatutAnnonce.choices, default=StatutAnnonce.BROUILLON
     )
     loc_confidentielle = models.BooleanField(default=False)
@@ -172,13 +172,13 @@ class AgriScore(models.Model):
     """Score agricole calculé pour une parcelle."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    parcelle = models.OneToOneField(
-        Parcelle, on_delete=models.CASCADE, related_name='agriscore'
+    parcelle = models.ForeignKey(
+        Parcelle, on_delete=models.CASCADE, related_name='scores'
     )
     score_global = models.FloatField(blank=True, null=True)
     sous_scores = models.JSONField(blank=True, null=True)
     indice_confiance = models.FloatField(blank=True, null=True)
-    version_algo = models.CharField(max_length=50)
+    version_ponderation = models.CharField(max_length=50)
     calculated_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:

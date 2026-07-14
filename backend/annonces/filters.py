@@ -1,5 +1,8 @@
 """
-FilterSet django-filter pour le modèle Annonce.
+# LEGACY — Vues HTML uniquement.
+# Le FilterSet de l'API est AnnonceAPIFilter (api_views.py). Ne pas modifier pour l'API.
+
+FilterSet django-filter pour le modèle Annonce (vues template).
 
 Centralise toute la logique de filtrage à facettes :
 - Recherche textuelle (Q objects sur titre + description)
@@ -18,19 +21,21 @@ from .models import Annonce, Parcelle
 
 class AnnonceFilter(django_filters.FilterSet):
     """
-    FilterSet pour les annonces du catalogue.
+    # LEGACY — Vues HTML uniquement.
+    # Le FilterSet de l'API est AnnonceAPIFilter (api_views.py). Ne pas modifier pour l'API.
+
+    FilterSet pour les annonces du catalogue (vues template).
 
     Paramètres GET supportés :
         ?q=             → Recherche textuelle (titre OU description)
         ?region=        → ID région (supporte multi : ?region=1&region=3)
         ?statut_foncier=→ Statut foncier (supporte multi : ?statut_foncier=melkia&statut_foncier=guich)
-        ?culture=       → Type de culture (recherche dans JSONField metadata)
         ?acces_eau=     → Accès eau (choix exact)
         ?prix_min=      → Prix minimum (>=)
         ?prix_max=      → Prix maximum (<=)
         ?surface_min=   → Surface minimum en ha (>=)
         ?surface_max=   → Surface maximum en ha (<=)
-        ?sort=          → Tri : prix, -prix, date_publication, -date_publication
+        ?sort=          → Tri : prix_mad, -prix_mad, date_publication, -date_publication
     """
 
     # ── Recherche textuelle ──────────────────────────────────
@@ -53,11 +58,6 @@ class AnnonceFilter(django_filters.FilterSet):
         label='Statut foncier',
     )
 
-    culture = django_filters.CharFilter(
-        method='filter_culture',
-        label='Type de culture',
-    )
-
     acces_eau = django_filters.ChoiceFilter(
         field_name='parcelle__acces_eau',
         choices=Parcelle.AccesEau.choices,
@@ -66,26 +66,26 @@ class AnnonceFilter(django_filters.FilterSet):
 
     # ── Filtres par plage : prix ─────────────────────────────
     prix_min = django_filters.NumberFilter(
-        field_name='prix',
+        field_name='prix_mad',
         lookup_expr='gte',
         label='Prix minimum (MAD)',
     )
 
     prix_max = django_filters.NumberFilter(
-        field_name='prix',
+        field_name='prix_mad',
         lookup_expr='lte',
         label='Prix maximum (MAD)',
     )
 
     # ── Filtres par plage : surface ──────────────────────────
     surface_min = django_filters.NumberFilter(
-        field_name='parcelle__surface',
+        field_name='parcelle__surface_ha',
         lookup_expr='gte',
         label='Surface minimum (ha)',
     )
 
     surface_max = django_filters.NumberFilter(
-        field_name='parcelle__surface',
+        field_name='parcelle__surface_ha',
         lookup_expr='lte',
         label='Surface maximum (ha)',
     )
@@ -93,11 +93,11 @@ class AnnonceFilter(django_filters.FilterSet):
     # ── Tri dynamique ────────────────────────────────────────
     sort = django_filters.OrderingFilter(
         fields=(
-            ('prix', 'prix'),
+            ('prix_mad', 'prix_mad'),
             ('date_publication', 'date_publication'),
         ),
         field_labels={
-            'prix': 'Prix',
+            'prix_mad': 'Prix',
             'date_publication': 'Date de publication',
         },
         label='Trier par',
@@ -120,20 +120,4 @@ class AnnonceFilter(django_filters.FilterSet):
             return queryset
         return queryset.filter(
             Q(titre__icontains=value) | Q(description__icontains=value)
-        )
-
-    def filter_culture(self, queryset, name, value):
-        """
-        Filtre sur le type de culture stocké dans le JSONField `metadata`.
-
-        Le champ metadata contient une clé 'culture' avec une liste de strings.
-        Exemple : {"culture": ["Blé", "Olivier"]}
-
-        Utilise icontains sur PostgreSQL pour une recherche textuelle
-        dans la représentation JSON.
-        """
-        if not value:
-            return queryset
-        return queryset.filter(
-            parcelle__metadata__culture__icontains=value
         )
