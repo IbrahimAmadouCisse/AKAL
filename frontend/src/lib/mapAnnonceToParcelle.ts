@@ -1,0 +1,186 @@
+// Mapping DTO API (forme brute renvoyée par Django REST Framework) → type
+// front `Parcelle` (types/parcelle.ts).
+//
+// DTOs alignés sur AKAL_Contrat_Donnees_v1.2.md §4.4. La liste et le détail
+// renvoient des formes différentes ("sous-ensemble allégé" pour la liste,
+// cf. §4.4) — d'où deux DTO et deux mappers distincts.
+//
+// `type_culture` a été retiré du contrat en v1.2 (changement cassant,
+// gouvernance §7) : jamais migré en enum fiable côté back, et le front avait
+// de toute façon déjà tranché de ne pas l'exposer en UI.
+
+import type {
+  AccesEau,
+  Parcelle,
+  ScoreCourant,
+  StatutAnnonce,
+  StatutFoncier,
+  Topographie,
+} from "@/types/parcelle";
+
+type RegionDTO = {
+  code: string;
+  nom: string;
+};
+
+type LocalisationListDTO = {
+  latitude: number;
+  longitude: number;
+};
+
+type LocalisationDetailDTO = LocalisationListDTO & {
+  adresse_approximative: string;
+};
+
+type ParcelleListDTO = {
+  id: string;
+  surface_ha: number;
+  statut_foncier: StatutFoncier;
+  acces_eau: AccesEau;
+  topographie?: Topographie | null;
+  region: RegionDTO;
+  localisation: LocalisationListDTO;
+};
+
+type ParcelleDetailDTO = Omit<ParcelleListDTO, "localisation"> & {
+  localisation: LocalisationDetailDTO;
+  metadata?: Record<string, unknown>;
+};
+
+// Liste : allégé à score_global seul (§4.4).
+type ScoreCourantListDTO = {
+  score_global: number;
+} | null;
+
+// Détail : objet complet.
+type ScoreCourantDetailDTO = {
+  score_global: number;
+  sous_scores: Record<string, number>;
+  version_ponderation: string;
+} | null;
+
+export type AnnonceListDTO = {
+  id: string;
+  slug: string;
+  titre: string;
+  prix_mad: number;
+  statut: StatutAnnonce;
+  parcelle: ParcelleListDTO;
+  score_courant: ScoreCourantListDTO;
+  photo_principale: string | null;
+  created_at: string;
+};
+
+export type PhotoDTO = {
+  id: string;
+  url: string;
+  ordre: number;
+};
+
+export type AnnonceDetailDTO = {
+  id: string;
+  slug: string;
+  titre: string;
+  description: string;
+  prix_mad: number;
+  statut: StatutAnnonce;
+  date_publication: string | null;
+  parcelle: ParcelleDetailDTO;
+  score_courant: ScoreCourantDetailDTO;
+  photos: PhotoDTO[]; // toujours triées par ordre croissant, [] si vide
+  proprietaire: { id: string }; // anonymisé — RGPD/loi 09-08, §4.5
+  created_at: string;
+  updated_at: string;
+};
+
+const UNE_SEMAINE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// "Nouveau" si créée il y a moins d'une semaine — calculé front, jamais
+// renvoyé par le back. Basé sur created_at (toujours présent), pas
+// date_publication (absent en liste, cf. §4.4).
+function calculerBadge(createdAt: string): string | null {
+  const cree = new Date(createdAt).getTime();
+  if (Number.isNaN(cree)) return null;
+  return Date.now() - cree < UNE_SEMAINE_MS ? "Nouveau" : null;
+}
+
+function calculerPrixM2(prix: number, surfaceHa: number): number {
+  const surfaceM2 = surfaceHa * 10_000;
+  return surfaceM2 > 0 ? Math.round(prix / surfaceM2) : 0;
+}
+
+function mapScoreCourant(dto: ScoreCourantListDTO | ScoreCourantDetailDTO): ScoreCourant | null {
+  if (dto == null) return null;
+  return {
+    scoreGlobal: dto.score_global,
+    sousScores: "sous_scores" in dto ? dto.sous_scores : null,
+    versionPonderation: "version_ponderation" in dto ? dto.version_ponderation : null,
+  };
+}
+
+// Réponse de GET /api/annonces/ (un élément de `results[]`).
+export function mapAnnonceToParcelle(dto: AnnonceListDTO): Parcelle {
+  return {
+    id: dto.id,
+    slug: dto.slug,
+    titre: dto.titre,
+    description: "", // non exposé en liste (allégé)
+    // Number(...) : blindage contre une régression de COERCE_DECIMAL_TO_STRING
+    // côté DRF (qui sérialise les DecimalField en string par défaut) — coût
+    // nul, rend le mapper tolérant même si le contrat numérique est rompu.
+    prix: Number(dto.prix_mad),
+    prixM2: calculerPrixM2(Number(dto.prix_mad), Number(dto.parcelle.surface_ha)),
+    statut: dto.statut,
+    datePublication: null, // absent en liste — voir createdAt
+    createdAt: dto.created_at,
+    badge: calculerBadge(dto.created_at),
+    parcelle: {
+      surface: Number(dto.parcelle.surface_ha),
+      statutFoncier: dto.parcelle.statut_foncier,
+      accesEau: dto.parcelle.acces_eau,
+      topographie: dto.parcelle.topographie ?? null,
+      latitude: dto.parcelle.localisation.latitude,
+      longitude: dto.parcelle.localisation.longitude,
+      regionCode: dto.parcelle.region.code,
+      regionNom: dto.parcelle.region.nom,
+      adresseApproximative: null, // absent en liste
+    },
+    scoreCourant: mapScoreCourant(dto.score_courant),
+    photoPrincipale: dto.photo_principale,
+    photos: [],
+  };
+}
+
+// Réponse de GET /api/annonces/<slug>/.
+export function mapAnnonceDetailToParcelle(dto: AnnonceDetailDTO): Parcelle {
+  return {
+    id: dto.id,
+    slug: dto.slug,
+    titre: dto.titre,
+    description: dto.description,
+    // Number(...) : blindage contre une régression de COERCE_DECIMAL_TO_STRING
+    // côté DRF (qui sérialise les DecimalField en string par défaut) — coût
+    // nul, rend le mapper tolérant même si le contrat numérique est rompu.
+    prix: Number(dto.prix_mad),
+    prixM2: calculerPrixM2(Number(dto.prix_mad), Number(dto.parcelle.surface_ha)),
+    statut: dto.statut,
+    datePublication: dto.date_publication,
+    createdAt: dto.created_at,
+    badge: calculerBadge(dto.created_at),
+    parcelle: {
+      surface: Number(dto.parcelle.surface_ha),
+      statutFoncier: dto.parcelle.statut_foncier,
+      accesEau: dto.parcelle.acces_eau,
+      topographie: dto.parcelle.topographie ?? null,
+      latitude: dto.parcelle.localisation.latitude,
+      longitude: dto.parcelle.localisation.longitude,
+      regionCode: dto.parcelle.region.code,
+      regionNom: dto.parcelle.region.nom,
+      adresseApproximative: dto.parcelle.localisation.adresse_approximative,
+    },
+    scoreCourant: mapScoreCourant(dto.score_courant),
+    // photos toujours triées par ordre croissant côté API (§4.4) ; ordre 0 = principale.
+    photoPrincipale: dto.photos[0]?.url ?? null,
+    photos: dto.photos.map((p) => p.url),
+  };
+}

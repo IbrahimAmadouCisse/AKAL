@@ -128,4 +128,87 @@
   .badge-immatricule { padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; background-color: var(--color-rosee); color: var(--color-nuit); }
 
   .tifinagh { font-family: var(--font-tifinagh); }
+
+  /* --- Helpers responsive --- */
+  .hidden-mobile { display: flex; }
+  .hidden-desktop { display: none; }
+
+  @media (max-width: 768px) {
+    .hidden-mobile { display: none !important; }
+    .hidden-desktop { display: flex !important; }
+  }
+
+  /* --- Sidebar de filtres du catalogue --- */
+  .filtres-sidebar {
+    position: sticky;
+    top: 64px;
+    height: calc(100vh - 64px);
+    width: 288px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    background-color: white;
+    border-right: 1px solid var(--color-bordure);
+    z-index: 30;
+  }
+
+  @media (max-width: 768px) {
+    .filtres-sidebar {
+      position: fixed;
+      left: 0;
+      transform: translateX(-100%);
+      transition: transform 300ms ease;
+      box-shadow: 0 0 24px rgba(0, 0, 0, 0.15);
+    }
+    .filtres-sidebar--ouverte {
+      transform: translateX(0);
+    }
+  }
+
+  /* --- Page fiche parcelle --- */
+  .fiche-layout {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+  }
+
+  .fiche-aside {
+    width: 340px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 84px;
+  }
+
+  @media (max-width: 900px) {
+    .fiche-layout {
+      flex-direction: column;
+    }
+    .fiche-aside {
+      width: 100%;
+      position: static;
+    }
+  }
+
+  /* État loading (CardParcelleSkeleton) — respecte prefers-reduced-motion. */
+  .skeleton-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: akal-shimmer 1.6s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer::after {
+      animation: none;
+    }
+  }
+  @keyframes akal-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
 }
