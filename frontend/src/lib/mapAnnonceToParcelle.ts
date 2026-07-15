@@ -125,14 +125,17 @@ export function mapAnnonceToParcelle(dto: AnnonceListDTO): Parcelle {
     slug: dto.slug,
     titre: dto.titre,
     description: "", // non exposé en liste (allégé)
-    prix: dto.prix_mad,
-    prixM2: calculerPrixM2(dto.prix_mad, dto.parcelle.surface_ha),
+    // Number(...) : blindage contre une régression de COERCE_DECIMAL_TO_STRING
+    // côté DRF (qui sérialise les DecimalField en string par défaut) — coût
+    // nul, rend le mapper tolérant même si le contrat numérique est rompu.
+    prix: Number(dto.prix_mad),
+    prixM2: calculerPrixM2(Number(dto.prix_mad), Number(dto.parcelle.surface_ha)),
     statut: dto.statut,
     datePublication: null, // absent en liste — voir createdAt
     createdAt: dto.created_at,
     badge: calculerBadge(dto.created_at),
     parcelle: {
-      surface: dto.parcelle.surface_ha,
+      surface: Number(dto.parcelle.surface_ha),
       statutFoncier: dto.parcelle.statut_foncier,
       accesEau: dto.parcelle.acces_eau,
       topographie: dto.parcelle.topographie ?? null,
@@ -155,14 +158,17 @@ export function mapAnnonceDetailToParcelle(dto: AnnonceDetailDTO): Parcelle {
     slug: dto.slug,
     titre: dto.titre,
     description: dto.description,
-    prix: dto.prix_mad,
-    prixM2: calculerPrixM2(dto.prix_mad, dto.parcelle.surface_ha),
+    // Number(...) : blindage contre une régression de COERCE_DECIMAL_TO_STRING
+    // côté DRF (qui sérialise les DecimalField en string par défaut) — coût
+    // nul, rend le mapper tolérant même si le contrat numérique est rompu.
+    prix: Number(dto.prix_mad),
+    prixM2: calculerPrixM2(Number(dto.prix_mad), Number(dto.parcelle.surface_ha)),
     statut: dto.statut,
     datePublication: dto.date_publication,
     createdAt: dto.created_at,
     badge: calculerBadge(dto.created_at),
     parcelle: {
-      surface: dto.parcelle.surface_ha,
+      surface: Number(dto.parcelle.surface_ha),
       statutFoncier: dto.parcelle.statut_foncier,
       accesEau: dto.parcelle.acces_eau,
       topographie: dto.parcelle.topographie ?? null,
