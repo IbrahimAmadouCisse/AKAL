@@ -12,16 +12,23 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+# pyrefly: ignore [missing-import]
 import environ
 
 env = environ.Env()
+
+# GDAL / GEOS — Chemins spécifiques pour le développement sous Windows.
+# Sur Linux/Docker, les paquets apt (gdal-bin, libgdal-dev) sont détectés automatiquement.
+if os.name == 'nt':
+    GDAL_LIBRARY_PATH = r'C:\Program Files\PostgreSQL\18\bin\libgdal-35.dll'
+    GEOS_LIBRARY_PATH = r'C:\Program Files\PostgreSQL\18\bin\libgeos_c.dll'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # .parent x3 car base.py est dans akal/settings/, donc : settings -> akal -> akal_project
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Lecture du fichier .env
-environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+environ.Env.read_env(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -42,13 +49,25 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',
+
+    # Apps tierces
+    'rest_framework',
+    'drf_spectacular',
+    'corsheaders',
+    'django_filters',
 
     # Apps du projet
+    'accounts',
+    'geo',
     'annonces',
+    'messaging',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -83,6 +102,10 @@ WSGI_APPLICATION = 'akal.wsgi.application'
 DATABASES = {
     'default': env.db(),
 }
+DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
+
+# Custom User model
+AUTH_USER_MODEL = 'accounts.User'
 
 
 # Password validation
@@ -119,4 +142,70 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Media files (uploads: avatars, photos)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ──────────────────────────────────────────────
+# DJANGO REST FRAMEWORK
+# ──────────────────────────────────────────────
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 12,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    # Contrat §4.4 : prix_mad/surface_ha sont des nombres JSON, pas des
+    # chaînes. DRF sérialise les DecimalField en string par défaut.
+    'COERCE_DECIMAL_TO_STRING': False,
+}
+
+
+# ──────────────────────────────────────────────
+# DRF-SPECTACULAR — OpenAPI / Swagger
+# ──────────────────────────────────────────────
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'AKAL API',
+    'DESCRIPTION': 'API de la plateforme AKAL — vente de terrains agricoles au Maroc',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
+
+# ──────────────────────────────────────────────
+# CORS — django-cors-headers
+# ──────────────────────────────────────────────
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+]
+
+
+# ──────────────────────────────────────────────
+# CACHE — Redis via django-redis
+# ──────────────────────────────────────────────
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': env('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'akal',
+        'TIMEOUT': 60,  # TTL par défaut : 60 secondes
+    }
+}

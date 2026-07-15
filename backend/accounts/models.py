@@ -1,0 +1,59 @@
+# pyrefly: ignore [missing-import]
+import uuid
+
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.db import models
+
+
+class UserManager(BaseUserManager):
+    """Manager custom pour un User sans champ username."""
+
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("L'adresse email est obligatoire")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_verified', True)
+        extra_fields.setdefault('role', 'ADMIN')
+        return self.create_user(email, password, **extra_fields)
+
+
+class User(AbstractUser):
+    """Utilisateur custom du projet AKAL."""
+
+    class Role(models.TextChoices):
+        PROPRIETAIRE = 'PROPRIETAIRE', 'Propriétaire'
+        INVESTISSEUR = 'INVESTISSEUR', 'Investisseur'
+        ADMIN = 'ADMIN', 'Administrateur'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField('adresse email', unique=True)
+    role = models.CharField(max_length=20, choices=Role.choices)
+    nom = models.CharField(max_length=150)
+    prenom = models.CharField(max_length=150)
+    telephone = models.CharField(max_length=20, blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    is_verified = models.BooleanField(default=False)
+    date_inscription = models.DateTimeField(auto_now_add=True)
+
+    # On utilise l'email comme identifiant de connexion
+    username = None
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['nom', 'prenom']
+
+    objects = UserManager()
+
+    class Meta:
+        db_table = 'user'
+        verbose_name = 'Utilisateur'
+        verbose_name_plural = 'Utilisateurs'
+
+    def __str__(self):
+        return f"{self.prenom} {self.nom}"

@@ -3,3 +3,4 @@ akal_env/
 *.sqlite3
 __pycache__/
 *.md
+!README.md
