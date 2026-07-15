@@ -1,5 +1,13 @@
 import type { NextConfig } from "next";
 
+// Dev uniquement : le backend Django (MEDIA_URL) tourne en local sur un host
+// loopback (localhost:8000). Next.js bloque par défaut toute image dont le
+// host résout vers une IP privée/loopback (protection SSRF), même si le host
+// est listé dans `remotePatterns` — les deux mécanismes sont indépendants.
+// `dangerouslyAllowLocalIP` lève ce blocage ; on ne l'active donc jamais en
+// production, où seul le CDN public (media.akal.ma) sert les images.
+const isDev = process.env.NODE_ENV !== "production";
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
@@ -9,7 +17,12 @@ const nextConfig: NextConfig = {
       // jamais de préfixe concaténé côté front. Domaine d'après l'exemple du
       // contrat (media.akal.ma) ; à ajuster si Ibrahim confirme un autre host/CDN.
       { protocol: "https", hostname: "media.akal.ma" },
+      // Backend Django en dev local — sert MEDIA_URL sur ce host:port.
+      ...(isDev
+        ? [{ protocol: "http" as const, hostname: "localhost", port: "8000", pathname: "/**" }]
+        : []),
     ],
+    ...(isDev ? { dangerouslyAllowLocalIP: true } : {}),
   },
 };
 
