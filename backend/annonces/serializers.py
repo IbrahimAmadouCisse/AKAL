@@ -24,15 +24,15 @@ from .models import Annonce, AgriScore, Parcelle, Photo
 # ──────────────────────────────────────────────
 
 class PhotoSerializer(serializers.ModelSerializer):
-    """Photo avec URL absolue."""
+    """Photo avec URL absolue (champ `url`, cf. contrat §4.4)."""
 
-    image = serializers.SerializerMethodField()
+    url = serializers.SerializerMethodField()
 
     class Meta:
         model = Photo
-        fields = ['id', 'image', 'ordre']
+        fields = ['id', 'url', 'ordre']
 
-    def get_image(self, obj):
+    def get_url(self, obj):
         """Retourne l'URL absolue de l'image."""
         request = self.context.get('request')
         if obj.image and request:

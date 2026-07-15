@@ -167,6 +167,9 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.OrderingFilter',
     ],
+    # Contrat §4.4 : prix_mad/surface_ha sont des nombres JSON, pas des
+    # chaînes. DRF sérialise les DecimalField en string par défaut.
+    'COERCE_DECIMAL_TO_STRING': False,
 }
 
 
